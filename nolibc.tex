@@ -1,0 +1,544 @@
+\hypertarget{prog:nolibc1}{}\label{prog:nolibc}
+
+\pagestyle{pvc}
+
+\rput(9.9,-1.8){\resizebox{!}{13cm}{{\epsfbox{images/articulos/nolibc_header.eps}}}}
+
+\vspace{2.5cm}
+\psset{fillstyle=solid}
+\psframe[fillcolor=black,opacity=0.7](2,-4.5)(17,0)
+
+
+
+% -------------------------------------------------
+% Cabecera
+\begin{flushright}
+
+
+{\color{introcolor}\mtitle{14cm}{Programas sin Dependencias con NoLibC}}
+
+\msubtitle{8cm}{Crea programas pequeños e independientes}
+
+{\sf\color{white}{ por Richi C. Poweri}}
+
+%{{\psset{linecolor=black,linestyle=dotted}\psline(-12,0)}}
+\end{flushright}
+
+
+\vspace{2mm}
+% -------------------------------------------------
+
+
+%\lstset{language=C,frame=tb,framesep=5pt,basicstyle=\footnotesize}
+\lstset{language=C,frame=tb,framesep=5pt,basicstyle=\scriptsize}
+
+
+
+\intro{introcolor}{Y}{a sabéis lo que nos gusta hacer que nuestros programas ocupen poco y
+sean independientes. Para ello suele ser necesario deshacerse de la
+librería C estándar y sustituirla por una versión más ligera como ulibc,
+dietlibc o musl\ldots{} Otra alternativa es NoLibC.}
+
+\begin{multicols}{2}
+
+NoLibC es una librería C mínima que se distribuye con el kernel Linux
+desde la versión 5.1. La podéis encontrar en las fuentes del kernel en
+el directorio \verb!tools/include/nolibc!,
+y la forma de usarla es muy sencilla. La librería fue concebida para
+poder escribir pequeñas aplicaciones de espacio de usuario con
+dependencias mínimas, algo que resulta útil para programas de usuario
+relacionados con el desarrollo del kernel, como por ejemplo en los
+discos RAM.
+
+En esos casos, el sistema de ficheros final (el que está en la unidad de
+almacenamiento principal, normalmente el disco duro) todavía no está
+disponible o no es necesario. El disco RAM puede incluirse para
+inicializar ciertas cosas o simplemente como el único disco disponible
+para ejecutar una aplicación específica. Este es el escenario para
+muchos sistema embebidos. Por lo tanto, cuanto más pequeño sea el disco
+RAM mejor (menos tiempo de carga), y para que el disco RAM sea pequeño,
+los programas que contiene y sus dependencias tienen que serlo también.
+
+\begin{entradilla}
+{\em NoLibC fue incluída en el kernel Linux para desarrollar pequqeños programas en espacio de usuario}
+\end{entradilla}
+
+La solución a la que llegaron los desarrolladores del kernel es NoLibC.
+
+\hypertarget{compilando-hola-mundo}{%
+\sectiontext{white}{black}{COMPILANDO HOLA MUNDO}\label{compilando-hola-mundo}}
+
+Para mostraros como funciona vamos a compilar el infame \emph{Hola
+Mundo}. Algo tal que así:
+
+\begin{lstlisting}[language=C]
+#include <nolibc.h>
+
+int main () {
+     puts ("Hello World!");
+     return 0;
+}
+\end{lstlisting}
+
+Los lectores más avispados habrán observado que hemos incluido el
+fichero {\verb!nolibc.h!} en lugar de el clásico
+{\verb!stdio.h!}. Cuando compilamos usando NoLibC, ese
+es el único fichero que tenemos que incluir.
+
+Para poder compilar este programa necesitamos el directorio que
+mencionamos anteriormente copiado en alguna parte de nuestro sistema de
+ficheros. Nosotros lo hemos copiado en
+{\verb!/opt/devel/nolibc!}
+
+Y la forma de hacerlo sería con el siguiente comando:
+
+\begin{lstlisting}
+gcc -static -nostdlib -o hola hola.c -I/opt/devl/nolibc
+\end{lstlisting}
+
+donde:
+
+\begin{itemize}
+
+\item
+  {\verb!-static!} indica que queremos generar un
+  binario estático. Esto es solo a efecto de comparar el tamaño real del
+  código generado usando NoLibC
+\item
+  {\verb!-nostdlib!} le dice a
+  {\verb!gcc!} que no queremos usar la librería
+  estándar. Este flag se refiere al linkado de los famosos
+  {\verb!crtX.o!} los cuales contienen la
+  implementación por defecto de la función
+  {\verb!_start!}.
+\item
+  {\verb!-I path!} le fiche a
+  {\verb!gcc!} que use el path que pasamos como
+  parámetro para buscar ficheros {\verb!.h!}
+\end{itemize}
+
+El comando anterior genera un binario tal que así:
+
+\begin{lstlisting}
+$ ls -lh hola
+-rwxr-xr-x 1 occams razor 33K Aug 13 16:04 hola
+$ strip -s hola
+$ ls -lh hola
+-rwxr-xr-x 1 occams razor 27K Aug 13 16:04 hola
+\end{lstlisting}
+
+Un fichero estático de 33Kb que después de pasarlo por
+{\verb!strip!} se nos queda en 27Kb\ldots{} ni tan mal.
+Aunque sabemos que podemos hacerlo mejor con otras librerías, para usar
+NoLibC, solo tenemos que copiar un directorio.
+
+\hypertarget{profundizando-en-los-flags}{%
+\sectiontext{white}{black}{PROFUNDIZANDO EN LOS FLAGS}\label{profundizando-en-los-flags}}
+
+En la sección anterior os dijimos que
+{\verb!-nostdlib!} nos permite eliminar la
+implementación de {\verb!_start!} que
+{\verb!gcc!} usa por defecto. Veamos que pasa si
+incluimos esa implementación:
+
+\begin{lstlisting}
+$ gcc -static -nolibc -o hello1 hello1.c -I /opt/devel/nolibc
+/usr/bin/ld: /usr/lib/gcc/x86_64-linux-gnu/12/../../../x86_64
+-linux-gnu/crt1.o: in function `_start':
+(.text+0x1d): undefined reference to `__libc_start_main'
+collect2: error: ld returned 1 exit status
+\end{lstlisting}
+
+Como podéis ver, el problema es que la función
+{\verb!_start!} que viene por defecto con gcc espera
+encontrar una función llamada
+{\verb!__libc_start_main!}\ldots{} pero esa función
+no está disponible en NoLibC y el linker termina con un error.
+
+Este es un mensaje de error lo suficientemente intrigante para que
+profundicemos en como está implementada NoLibC
+
+\hypertarget{primer-vistazo}{%
+\sectiontext{white}{black}{PRIMER VISTAZO}\label{primer-vistazo}}
+
+Comenzaremos echando un vistazo a los ficheros que incluye:
+
+\begin{lstlisting}
+$ ls /opt/devl/nolibc/
+Makefile          arch-i386.h      arch-powerpc.h
+arch-x86_64.h     crt.h            nolibc.h
+std.h             stdio.h          sys.h
+unistd.h          arch-aarch64.h   arch-loongarch.h
+arch-riscv.h      arch.h           ctype.h
+signal.h          stdarg.h         stdlib.h
+time.h            arch-arm.h       arch-mips.h
+arch-s390.h       compiler.h       errno.h
+stackprotector.h  stdint.h         string.h
+types.h
+\end{lstlisting}
+
+Lo primero que nos llama la atención es que toda la librería esta
+implementada como fichero {\verb!.h!}. Lo siguiente que
+nos llama la atención es que parece que soporta las principales
+arquitecturas, suponemos que al menos todas las arquitecturas soportadas
+oficialmente por el kernel.
+
+\begin{entradilla}
+{\em NoLibC se distribuye como una serie de ficheros de cabecera que incluir en nuestros programas C}
+\end{entradilla}
+
+El fichero principal {\verb!nolibc.h!} simplemente
+incluye el resto de fichero {\verb!.h!}, así que no
+tenemos porque incluir {\verb!stdio.h!} en nuestro
+ejemplo anterior. El fichero contiene un extenso comentario con detalles
+de la implementación que os recomendamos leer en caso de que queráis
+utilizar esta librería. Una de las cosas que incluye son un par de
+parámetros extra para la compilación para generar binarios más pequeños:
+
+\begin{lstlisting}
+$ gcc -fno-asynchronous-unwind-tables -fno-ident -s -Os \
+> -nostdlib hello1.c -o hello1 -I /opt/devel/nolibc/
+\end{lstlisting}
+
+donde:
+
+\begin{itemize}
+
+\item
+  {\verb!-fno-asynchronous-unwind-tables!} que le dice
+  a gcc que no genere cierta información de depuración
+\item
+  {\verb!-s!} elimina la tabla de símbolos y la
+  información de relocalización, es equivalente a
+  {\verb!strip!}
+\item
+  {\verb!-Os!} optimiza para tamaño
+\end{itemize}
+
+El flag {\verb!-fno-ident!} ignora las directivas
+{\verb!\#ident!} que se suele utilizar para copiar una
+cadena en el segmento especial
+{\verb!.comment!}\ldots{} En otras palabras elimina el
+segmento {\verb!.comment!} que realmente no es
+necesario para la ejecución del programa.
+
+\hypertarget{punto-de-entrada}{%
+\sectiontext{white}{black}{PUNTO DE ENTRADA}\label{punto-de-entrada}}
+
+Como dijimos anteriormente, NoLibC ofrece su propio punto de entrada,
+esto es, su propia implementación de la función
+{\verb!_start!}. Para el caso de la arquitectura
+x86\_64 este es el código en cuestión que podéis encontrar en
+{\verb!arch-86_64.h!}:
+
+\begin{lstlisting}[language=C]
+void __attribute__((weak, noreturn,
+                   optimize("Os", "omit-frame-pointer")))
+                   __no_stack_protector _start(void)
+{
+__asm__ volatile (
+  "xor  %ebp, %ebp\n" /* zero the stack frame      */
+  "mov  %rsp, %rdi\n" /* save stack pointer to     */
+                      /*    %rdi, as arg1 of       */
+                      /*    _start_c               */
+  "and  $-16, %rsp\n" /* %rsp must be 16-byte      */
+                      /*   aligned before call     */
+  "call _start_c\n"   /* transfer to c runtime     */
+  "hlt\n"             /* ensure it does not return */
+);
+__builtin_unreachable();
+}
+\end{lstlisting}
+
+Como podéis ver la función solo prepara la pila para pasarla a la
+función {\verb!_start_c!}, la cual está definida en
+{\verb!crt,h!}\ldots{} Ya sabéis \emph{C Run-Time}. La
+función prepara la pila con los argumentos de la línea de comandos, las
+variables de entorno y los vectores auxiliares necesarios para poder
+ejecutar el programa, inicializa las tablas de constructores y
+destructores, llamando a los primeros antes de
+{\verb!main!} y a los segundos después. Finalmente
+(bueno, casi, justo antes de ejecutar los destructores) llama a
+{\verb!_nolibc_main!} en lugar de
+{\verb!__libc_start_main!}. Respecto a esta última
+llamada utilizan un truco bastante interesante para permitir las
+distintas declaraciones de la función {\verb!main!}.
+
+\hypertarget{la-funciuxf3n-main}{%
+\sectiontext{white}{black}{\texorpdfstring{LA FUNCIÓN
+\texttt{main}}{LA FUNCIÓN main}}\label{la-funciuxf3n-main}}
+
+La función {\verb!main!}, formalmente, acepta tres
+parámetros. Su prototipo es algo talque así:
+
+\begin{lstlisting}
+int main (int argc, char *argv[], char *envv[]);
+\end{lstlisting}
+
+El primer parámetro {\verb!argc!} es el número de
+parámetros recibidos a través de la línea de comandos. El segundo
+parámetro {\verb!argv!} es un vector de cadenas de
+caracteres conteniendo cada uno de esos parámetros. Pero hay un tercer
+parámetro en el que recibimos un vector de cadenas de caracteres con las
+variables de entorno asociadas a esta ejecución. Si tenemos en cuenta
+que la forma de ejecutar un nuevo proceso en Linux es utilizando la
+llamada al sistema {\verb!execve!} todo toma bastante
+sentido:
+
+\begin{lstlisting}
+int execve(const char *pathname,
+              char *const _Nullable argv[],
+              char *const _Nullable envp[]);
+\end{lstlisting}
+
+Si bien, esta es la declaración formal, nadie la usa. Lo habitual es
+obviar el último parámetro y, en los casos en los que no necesitemos
+parámetros, también el resto. Así que es normal declarar
+{\verb!main!} en nuestros programas de alguna de estas
+maneras:
+
+\begin{lstlisting}
+ int main (int argc, char *argv[]);
+ int main (void);
+ 
+\end{lstlisting}
+
+¿Pero como es esto posible?. Bueno, la verdad que yo ni me lo había
+planteado hasta que vi estás dos líneas en el fichero
+{\verb!crt.h!} de NoLibC
+
+\begin{lstlisting}
+/* silence potential warning: conflicting types for 'main'*/
+int _nolibc_main(int, char **, char **) __asm__ ("main");
+\end{lstlisting}
+
+Modifiquemos ligeramente nuestro hola mundo para entender cual es el
+problema:
+
+\begin{lstlisting}[language=C]
+#include <stdio.h>
+
+void foo (int a, int b) {
+  puts ("Foo");
+}
+int main () {
+  puts ("Hola Mundo");
+  foo (1, 2);
+}
+\end{lstlisting}
+
+Si compilamos y ejecutamos el programa veremos que obtenemos:
+
+\begin{lstlisting}
+Hola Mundo 
+Foo
+\end{lstlisting}
+
+En este caso, nuestra función {\verb!foo!} no utiliza
+ninguno de los parámetros, así que tal si hacemos lo mismo que con
+{\verb!main!}, simplemente obviamos el segundo
+parámetro puesto que no lo usamos:
+
+\begin{lstlisting}[language=C]
+void foo (int a) { 
+  puts ("Hola Mundo");
+}
+\end{lstlisting}
+
+Si ahora intentamos compilar obtendremos:
+
+\begin{lstlisting}
+$ make hola
+hola.c: In function 'main':
+hola.c:22:3: error: too many arguments to function 'foo'
+   22 |   foo (1, 1);
+      |   ^~~
+hola.c:14:6: note: declared here
+   14 | void foo (int a) {
+      |      ^~~
+make: *** [<builtin>: hola] Error 1
+\end{lstlisting}
+
+Efectivamente, en el nuevo programa {\verb!foo!} está
+declarada como una función que recibe un solo parámetro, pero nosotros
+la estamos llamando con dos. Esto es exactamente lo que ocurre con
+{\verb!main!}. La función
+{\verb!_start_c!} tiene que llamar a la función
+{\verb!main!} de nuestro programa con todos los
+parámetros, sin embargo, el programador puede haber decidido usar una de
+las declaraciones reducidas de {\verb!main!}. Y aquí es
+donde la famosa línea entra en juego.
+
+\begin{lstlisting}[language=C]
+int _nolibc_main(int, char **, char **) __asm__ ("main");
+\end{lstlisting}
+
+Esta línea esta realmente declarando un puntero a una función y
+asignándole el valor {\verb!main!}. De forma general,
+la declaración del puntero preserva el número y tipo de parámetros para
+hacer nuestra llamada, sin embargo, en lugar de apuntar a una función C,
+le asignan el símbolo {\verb!main!}, o en otras
+palabras la dirección de memoria de la función
+{\verb!main!}. En modificamos nuestro ejemplo de forma
+similar obtendríamos:
+
+\begin{lstlisting}[language=C]
+#include <stdio.h>
+
+void foo (int a) {
+  puts ("Foo");
+}
+int main () {
+  void mi_foo (int a, int b) __asm__ ("foo");
+  puts ("Hola Mundo");
+  mi_foo (1, 2);
+}
+\end{lstlisting}
+
+Ahora podemos llamar a la función {\verb!foo!} pasando
+todos los parámetros del caso más general, aunque la hayamos declarado
+usando menos.
+
+
+
+\begin{entradilla}
+{\em Leyendo el código de NoLibC podéis aprender algunos trucos interesantes}
+\end{entradilla}
+
+
+
+
+
+Para terminar con este tema una nota rápida. Si declaramos la función
+como {\verb!void foo()!} no obtendremos errores de
+compilación aunque la llamemos directamente con varios parámetros. En C,
+una lista de parámetros vacía indica que la función puede recibir
+cualquier número de parámetros, no que no recibe parámetros. Si
+modificamos la función talque así
+{\verb!void foo(void)!}, ahora si estamos indicando que
+la función no espera parámetros y obtendremos de nuevo el error.
+
+\hypertarget{algunas-curiosidades-muxe1s}{%
+\sectiontext{white}{black}{ALGUNAS CURIOSIDADES MÁS}\label{algunas-curiosidades-muxe1s}}
+
+NoLibC oculta algunas curiosidades más que pueden resultar de lo más
+interesante para aquellos de vosotros que queréis profundizar en como
+funcionan los programas a bajo nivel. Aquí os dejamos una lista de cosas
+que podéis consultar:
+
+\begin{itemize}
+
+\item
+  Los ficheros {\verb!arch_x86_64!} contienen código
+  ensamblador para las funciones {\verb!memcpy!},
+  {\verb!memmove!} y {\verb!memset!}
+  utilizando las instrucciones de manejo de cadenas de los procesadores
+  intel
+\item
+  {\verb!stdio.h!} incluye el código de una versión
+  mínima de {\verb!printf!} que nos puede resultar útil
+  para reutilizar en algunos de nuestros programas
+\item
+  {\verb!stdlib.h!} contiene código para la conversión
+  entre números y cadenas, además de una implementación de un
+  {\verb!heap!} básico usando
+  {\verb!mmap!}
+\end{itemize}
+
+Echando un ojo al código de {\verb!stdlib.h!} vemos que
+la implementación del {\verb!heap!} no es la más
+eficiente del mundo. Veamos en detalle como funciona.
+
+\hypertarget{memoria-dinuxe1mica}{%
+\sectiontext{white}{black}{MEMORIA DINÁMICA}\label{memoria-dinuxe1mica}}
+
+Echemos un ojo a la implementación de {\verb!malloc!}
+de NoLibC:
+
+\begin{lstlisting}[language=C]
+struct nolibc_heap {
+  size_t  len;
+  char  user_p[] __attribute__((__aligned__));
+};
+
+...
+
+static __attribute__((unused))
+void *malloc(size_t len)
+{
+  struct nolibc_heap *heap;
+
+  /* Always allocate memory with size multiple of 4096. */
+  len  = sizeof(*heap) + len;
+  len  = (len + 4095UL) & -4096UL;
+  heap = mmap(NULL, len, PROT_READ|PROT_WRITE,
+         MAP_ANONYMOUS|MAP_PRIVATE,
+         -1, 0);
+  if (__builtin_expect(heap == MAP_FAILED, 0))
+    return NULL;
+
+  heap->len = len;
+  return heap->user_p;
+}
+\end{lstlisting}
+
+Lo primero que vemos es que {\verb!malloc!} solo
+reserva bloques de 4Kb, así que si vuestro programa usa
+{\verb!malloc!} para reservar memoria para pequeñas
+estructuras (como en el caso de una lista enlazada por ejemplo),
+estaremos desperdiciando memoria a lo loco.
+
+Lo siguiente que debemos comentar es que la memoria se reserva con
+{\verb!mmap!} pasando como primer parámetro
+{\verb!NULL!}. Esto significa que el kernel nos
+devolverá un bloque de memoria disponible, pero sin seguir ningún
+criterio específico, lo cual, en un programa que haga uso extensivo de
+memoria dinámica, puede provocar un problema de fragmentación de memoria
+y por tanto de disponibilidad de la misma.
+
+\begin{entradilla}
+{\em Debemos tener en cuenta que NoLibC tiene ciertas limitaciones y no está recomendada para cualquier tipo de aplicación}
+\end{entradilla}
+
+
+Así que, a modo de conclusión, NoLibC no es una buena opción para
+programas que utilizan {\verb!malloc!} a lo loco.
+Obtendrás un binario muy pequeño, pero el desperdicio de memoria en
+tiempo de ejecución será considerable.
+
+\hypertarget{muxe1s-limitaciones}{%
+\sectiontext{white}{black}{MÁS LIMITACIONES}\label{muxe1s-limitaciones}}
+
+Hay dos limitaciones más que debemos tener en cuenta si queremos
+utilizar NoLibC. La primera es que no todas las llamadas al sistema
+están implementadas. Específicamente todo lo relaciona con la red no se
+ha incluido todavía.
+
+En cierto modo, añadir llamadas al sistema es más o menos trivial y se
+espera que los desarrolladores del kernel las vayan incluyendo según las
+necesiten. En caso de que necesites alguna que no está disponible,
+siempre puede incluirla tu mismo, los fichero
+{\verb!arch_XXX!} ofrecen funciones para hacer
+llamadas al sistema, así que normalmente solo tendrás que escribir el
+prototipo de la función C y usar la función adecuada reordenando los
+parámetros.
+
+La segunda limitación tiene que ver con {\verb!errno!}
+y hay un extenso comentario sobre este tema en
+{\verb!nolibc.h!}. El problema es que
+{\verb!errno!} es una variable global y por tanto es
+necesario linkar junto cierto código del nuestro programa y de NoLibC,
+sin embargo, eso haría todo el proceso más complejo. NoLibC fue
+inicialmente convenida para pequeños programas normalmente contenidos en
+un único fichero, así que la solución por la que se optó fué declarar
+{\verb!errno!} como una variable estática visible en
+cada fichero fuente.
+
+La principal consecuencia de esto es que si nuestro programa tiene más
+de un fichero fuente, cada uno de ellos tendrá su propia copia de
+{\verb!errno!}. Siendo consciente de esto es posible
+escribir código que no tenga problemas, si bien, si nuestro programa
+requiere varios ficheros fuente para compilarse, quizás NoLibC no sea la
+mejor alternativa. \EOP
+\end{multicols}
+\rput(8.1,-4.1){\resizebox{!}{9.6cm}{{\epsfbox{images/promo/promo03.eps}}}}

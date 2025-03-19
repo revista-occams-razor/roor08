@@ -1,0 +1,514 @@
+\hypertarget{hacking:claves1}{}\label{hacking:claves}
+
+\pagestyle{hacking}
+
+\rput(7.9,-0.5){\resizebox{!}{5cm}{{\epsfbox{images/articulos/hacking_header.eps}}}}
+
+\vspace{3cm}
+\psset{fillstyle=solid}
+\psframe[fillcolor=black,opacity=0.7](2,-4.5)(17,0)
+
+
+
+% -------------------------------------------------
+% Cabecera
+\begin{flushright}
+
+
+{\color{introcolor}\mtitle{14cm}{¿Cómo Extraer Claves de un Programa en Ejecución}}
+
+\msubtitle{8cm}{Usando técnicas de hackeo de juegos}
+
+{\sf\color{white}{ por Yvil Yenius}}
+
+%{{\psset{linecolor=black,linestyle=dotted}\psline(-12,0)}}
+\end{flushright}
+
+
+\vspace{2mm}
+% -------------------------------------------------
+
+
+%\lstset{language=C,frame=tb,framesep=5pt,basicstyle=\footnotesize}
+\lstset{language=C,frame=tb,framesep=5pt,basicstyle=\scriptsize}
+
+
+
+\intro{introcolor}{T}{odo buen genio diabólico cuyo objetivo sea la dominación absoluta del
+mundo necesita ser capaz de controlar de cerca a sus esbirros y secuaces
+para evitar ser traicionado como pasa en las películas. A ver, esto es
+de primero de genio diabólico, pero se ve que en Hollywood no tienen esa
+asignatura. En este artículo os voy a contar como obtengo las claves de
+mis secuaces para poder acceder a sus sistemas y asegurarme de que no
+están conspirando contra mi.}
+
+\bigskip
+
+\begin{multicols}{2}
+
+
+
+Para ilustrar esta técnica que he refinado durante varios años vamos a
+utilizar un sencillo programa de ejemplo con el que mostrar, de forma
+práctica, el proceso completo de principio a fin.
+
+El programa es el siguiente:
+
+\begin{lstlisting}[language=C]
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+
+char *clave = "ClaveSuperSecreta";
+
+int main () {
+  char buf[1024];
+  printf ("PID: %ld (buf: %p)\n", getpid(), buf);
+  printf ("S3DY3. Sistema Super Secreto de "
+          "Yvil Yenius\n");
+  printf ("(c) Yvil Yenius\n");
+  printf ("Introduce la clave: ");
+  gets (buf);
+  if (strncmp (buf, clave, strlen(clave)) == 0) {
+    printf ("Acceso al sistema guay\n");
+    getchar ();
+  } else {
+    printf ("Mala suerte\n");
+    getchar();
+  }
+}
+\end{lstlisting}
+
+El típico programa que pide una clave al usuario y tras comprobar que es
+correcta permite el acceso a la parte del programa interesante. Para
+facilitar las cosas y no tener que buscar el PID del proceso en cada
+prueba que hagamos, hemos hecho que el programa lo muestre al comenzar,
+como dirían los matemáticos: \emph{Sin pérdida de generalidad}. En otras
+palabras, encontrar el PID del proceso de interés es una simple cuestión
+de utilizar {\verb!ps!} y
+{\verb!grep!}.
+
+\hypertarget{tuxe9cnicas-de-hackeo-de-juegos}{%
+\sectiontext{white}{black}{TÉCNICAS DE HACKEO DE JUEGOS}\label{tuxe9cnicas-de-hackeo-de-juegos}}
+
+Uno de las primeras utilidades que utilicé para le hackeo de juegos hace
+muchos, muchos años, era un programa residente para MS-DOS (lo que se
+conocía como TSRs \emph{Terminate-and-Stay-Resident}) que tomaba
+snapshots de la memoria al pulsar cierta combinación de teclas. La
+utilidad funcionaba tal que así:
+
+\begin{itemize}
+
+\item
+  Iniciabas el juego
+\item
+  Pulsando una tecla especial, el juego se paraba y entrabas en un
+  interfaz en modo texto donde podías hacer varias cosas. Una de ellas
+  era tomar un snapshot de la memoria.
+\item
+  Luego si, por ejemplo, querías vidas infinitas, perdías una vida a
+  proposito y hacías otro snapshot.
+\item
+  Con este segundo snapshot, la utilidad era capaz de buscar las
+  posiciones de memoria que habían cambiado desde el principio,
+  asumiendo que el número de vidas estaba almacenado en algún lugar de
+  la memoria y se había decrementado en 1.
+\end{itemize}
+
+En el primer ciclo, normalmente obtenías un montón de direcciones
+modificadas, pero según ibas repitiendo el proceso, cada vez el número
+era menor hasta que con un poco de tiempo podías encontrar la posición
+de memoria que contenía el número de vidas y modificarlo para que
+tuviera un número muy alto o incluso congelar esa posición de memoria
+para que no se pudiera volver a modificar.
+
+Como podéis ver, esta forma de hackeo puede ser muy efectiva y no
+requiere de ningún tipo de habilidad especial como ser capaz de hacer
+ingeniería inversa sobre el código máquina, o utilizar depuradores para
+analizar el juego de forma dinámica. Creo recordar que la utilidad traía
+un desensamblador y podías examinar el código para descartar
+direcciones, pero la verdad es que la memoria me falla un poco :). Que
+más dá\ldots. Son cosas de la edaaaadddd. (esta referencia musical es
+bastante reveladora :))
+
+\begin{entradilla}
+{\em Hacer snapshots de memoria y compararlos es una técnica clásica de hackeo de juegos}
+\end{entradilla}
+
+
+Siguiendo este mismo principio vamos a escribir un programa con el que
+obtener la clave que introduce el usuario en el programa anterior,
+haciendo snapshots de la memoria del proceso. Original eh?
+
+\hypertarget{leyendo-memoria-de-un-proceso}{%
+\sectiontext{white}{black}{LEYENDO MEMORIA DE UN PROCESO}\label{leyendo-memoria-de-un-proceso}}
+
+Hay tres formas de leer la memoria de un proceso en Linux:
+
+\begin{itemize}
+
+\item
+  Usando la llamada al sistema {\verb!ptrace!}
+\item
+  Leyendo el fichero {\verb!/dev/PID/mem!}
+\item
+  Usando la llamada al sistema
+  {\verb!process_vm_readv!}
+\end{itemize}
+
+Para nuestra utilidad vamos a utilizar la última técnica\ldots{}
+básicamente por que las otras dos ya sabemos como funcionan y queríamos
+probar algo nuevo. Algo que fuera una aventura. Algo misterioso. Algo de
+chocolate\ldots{} y que sea una sorpresa.
+
+Veamos el código de la utilidad y luego entremos en los detalles.
+
+\begin{lstlisting}[language=C]
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/uio.h>
+
+#define BLK_SIZE 1024 
+
+int
+main (int argc, char *argv[]) {
+  long          addr;
+  size_t        size;
+  pid_t         pid;
+  int           piped = 1;
+  unsigned char *buf;
+  
+  if (!isatty(1)) piped = 0;
+  if (piped) {
+    printf ("UHG! Utilidad para el Hackeo de Games!\n");
+    printf ("%s", "Version 1.0 (c) Yvil Yenius\n");
+  }
+  if (argc != 4) {
+    fprintf (stderr,
+          "Usage:\n%s pid mem_addr mem_size\n",argv[0]);
+    exit (1);
+  }
+  pid = atoi (argv[1]);
+  addr = atol (argv[2]);
+  size = atol (argv[3]);
+
+  buf = malloc (size);
+  struct iovec local[1];
+  struct iovec remote[1];
+  ssize_t      nread;
+
+  local[0].iov_base = buf;
+  local[0].iov_len = size;
+  remote[0].iov_base = (void *)addr;
+  remote[0].iov_len = size;
+  if (piped)
+    printf ("Reading %lx bytes from %p\n",
+             size, (void*)addr);
+  nread = process_vm_readv (pid, local, 1, remote, 1, 0);
+  if (nread  != size) {
+    perror ("process_vm_readv:");
+    exit (EXIT_FAILURE);
+  }
+  // Output to std out
+  int n;
+  for (int i = 0; i < size;) {
+    n = size - i < BLK_SIZE ? size - i : BLK_SIZE;
+    nread = write (1, buf+i, n);
+    i +=nread;
+  }
+  return 0;
+}
+\end{lstlisting}
+
+El principio del programa no tienen nada especial. Se trata del típico
+código para procesar los parámetros que recibimos por la línea de
+comandos. En este caso el PID del proceso al que queremos acceder, la
+dirección de memoria y el tamaño de la misma que queremos leer. En un
+momentito veremos de donde sacar esas direcciones de memoria.
+
+La llamada al sistema {\verb!process_vm_readv!}
+utiliza la estructura {\verb!struct iovec!} al igual
+que las funciones de entrada/salida vectorizadas
+{\verb!readv!} y {\verb!writev!}. Esta
+estructura nos permite definir un conjunto de buffers en los que
+recibir/leer los datos o en los que almacenar los datos a
+enviar/escribir. A diferencia de {\verb!readv!} y
+{\verb!writev!},
+{\verb!process_vm_readv!} necesita dos de estas
+estructuras. La primera define los bloques de memoria en los que vamos a
+almacenar los datos que leemos del proceso y la segunda indica los
+bloques de memoria que queremos leer del proceso remoto. Como podéis ver
+en este caso, el dirección remota y el tamaño son parámetros que pasamos
+por la línea de comandos.
+
+\begin{entradilla}
+{\em \verb!process_vm_readv! es una llamada al sisteam que nos permite leer la memoria de cualquier proceso}
+\end{entradilla}
+
+La parte final del programa simplemente vuelca los datos en formato
+binario en la consola.
+
+Sí. Usamos la función {\verb!isatty!} para saber si
+estamos siendo ejecutados en solitario o como parte de un
+{\verb!pipe!}. En este segundo caso no queremos mostrar
+ningún mensaje que pase al siguiente elemento del pipe. Somos güays o
+qué?
+
+\columnbreak
+
+\hypertarget{obteniendo-las-direcciones}{%
+\sectiontext{white}{black}{OBTENIENDO LAS DIRECCIONES}\label{obteniendo-las-direcciones}}
+
+La forma más sencilla de obtener las direcciones a pasar a nuestro
+programa, es utilizando el pseudo sistema de ficheros
+{\verb!/proc!}. En concreto leyendo el fichero
+{\verb!/proc/PID/maps!}. Veamos como usar este fichero.
+
+En una consola ejecutamos nuestro programa de ejemplo, el cual, tras
+mostrar el mensaje de bienvenida (que afortunadamente nos muestra el PID
+del proceso) quedará esperando a que el usuario introduzca la clave.
+
+\begin{lstlisting}
+$ ./password1
+PID: 977844 (buf: 0x7ffff68e7a70)
+Introduce la clave:
+\end{lstlisting}
+
+Ahora que tenemos el PID, en otro terminal podemos ejecutar el siguiente
+comando para obtener el mapa de memoria del proceso, el cual mostrará
+algo como esto:
+
+\end{multicols}
+
+
+
+\begin{lstlisting}[caption={Mapa del memoria del proceso a hackear}]
+$ cat /proc/977844/maps
+560ade949000-560ade94a000 r--p 00000000 fd:00 16777253   /tmp/password1
+560ade94a000-560ade94b000 r-xp 00001000 fd:00 16777253   /tmp/password1
+560ade94b000-560ade94c000 r--p 00002000 fd:00 16777253   /tmp/password1
+560ade94c000-560ade94d000 r--p 00002000 fd:00 16777253   /tmp/password1
+560ade94d000-560ade94e000 rw-p 00003000 fd:00 16777253   /tmp/password1
+560adf006000-560adf027000 rw-p 00000000 00:00 0          [heap]
+7fc4b0f03000-7fc4b0f06000 rw-p 00000000 00:00 0
+7fc4b0f06000-7fc4b0f2c000 r--p 00000000 fd:00 84414023   /usr/lib/x86_64-linux-gnu/libc.so.6
+7fc4b0f2c000-7fc4b1081000 r-xp 00026000 fd:00 84414023   /usr/lib/x86_64-linux-gnu/libc.so.6
+7fc4b1081000-7fc4b10d4000 r--p 0017b000 fd:00 84414023   /usr/lib/x86_64-linux-gnu/libc.so.6
+7fc4b10d4000-7fc4b10d8000 r--p 001ce000 fd:00 84414023   /usr/lib/x86_64-linux-gnu/libc.so.6
+7fc4b10d8000-7fc4b10da000 rw-p 001d2000 fd:00 84414023   /usr/lib/x86_64-linux-gnu/libc.so.6
+7fc4b10da000-7fc4b10e7000 rw-p 00000000 00:00 0
+7fc4b10fd000-7fc4b10ff000 rw-p 00000000 00:00 0
+7fc4b10ff000-7fc4b1100000 r--p 00000000 fd:00 84414011   /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7fc4b1100000-7fc4b1125000 r-xp 00001000 fd:00 84414011   /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7fc4b1125000-7fc4b112f000 r--p 00026000 fd:00 84414011   /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7fc4b112f000-7fc4b1131000 r--p 00030000 fd:00 84414011   /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7fc4b1131000-7fc4b1133000 rw-p 00032000 fd:00 84414011   /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+7ffff68c8000-7ffff68e9000 rw-p 00000000 00:00 0          [stack]
+7ffff69cb000-7ffff69cf000 r--p 00000000 00:00 0          [vvar]
+7ffff69cf000-7ffff69d1000 r-xp 00000000 00:00 0          [vdso]
+\end{lstlisting}
+
+\begin{multicols}{2}
+
+De cada línea nos interesan los 3 primeros campos y el último. Los dos
+primeros son la dirección de inicio y fin de cada bloque de memoria. El
+tercer campo nos indica los permisos, lo que nos permitirá identificar
+bloques de código (con el permiso {\verb!x!} de
+ejecución), bloques de datos (con los permisos
+{\verb!rw!} de lectura escritura) y bloques de datos de
+solo lectura (con el permiso {\verb!r!}). El último
+campo nos indica a quien pertenece cada bloque de memoria. Podemos ver
+bloques de memoria creados por la librería C estándar
+({\verb!libc.so.6!}) y el linker dinámico
+({\verb!ld-linux-x86-64!}), pero también bloques
+especiales como el {\verb!heap!} o la pila.
+
+\begin{entradilla}
+{\em \verb!/proc/PID/maps! nos permite obtener el mapa de memoria de cualquier proceso desde la línea de comandos}
+\end{entradilla}
+
+Con esta información y nuestra pequeña utilidad podemos volcar cualquier
+parte de la memoria del proceso cuyo mapa acabamos de obtener. Por
+ejemplo:
+
+\begin{lstlisting}
+$ make uhg
+cc     uhg.c   -o uhg
+$ ./uhg 977844 $((0x560ade94b000)) $((0x2000)) | \
+> strings -n5
+ClaveSuperSecreta
+PID: %ld (buf: %p)
+Introduce la clave:
+Acceso al sistema guay
+Mala suerte
+;*3$"
+\end{lstlisting}
+
+Tras compilar el programa lo ejecutamos usando los valores que hemos
+extraído del mapa de memoria del programa de ejemplo que está siendo
+ejecutado con PID {\verb!977844!}. La dirección elegida
+corresponde a un bloque de solo lectura justo tras el bloque de código,
+lo que suele contener la sección {\verb!.rodata!} que
+contiene las constantes usadas en nuestro programa. Ahí ya podemos ver
+la clave, además de todas las cadenas que el programa de ejemplo usa. En
+lugar de usar {\verb!strings!} podemos redirigir la
+salida de nuestro programa a {\verb!xxd!} para obtener
+un volcado hexadecimal o volcarlo en un fichero.
+
+En condiciones normales, la clave no debería estar almacenada como texto
+plano. Debería ser un hash o algo por el estilo, así que con lo que
+acabamos de hacer no podríamos obtenerlas en un caso real. Debemos
+emplearnos más a fondo.
+
+\hypertarget{extrayendo-la-clave-como-un-pro}{%
+\sectiontext{white}{black}{EXTRAYENDO LA CLAVE COMO UN PRO}\label{extrayendo-la-clave-como-un-pro}}
+
+Siguiendo la estrategia de la utilidad de hackeo de juegos que
+mencionamos al principio vamos a volcar en un fichero un volcado de la
+memoria que nos interesa al principio de la ejecución del programa. En
+este caso sabemos que el valor que el usuario introduzca se va a
+almacenar en la pila, así que vamos a usar nuestro programa para hacer
+un volcado inicial de la pila.
+
+Para nuestro programa de prueba todavía en ejecución, la pila se
+encuentra en el área de memoria que va desde
+{\verb!7ffff68c8000!} a
+{\verb!7ffff68c8000!}. Teniendo en cuenta que la pila
+crece hacia las direcciones bajas, nos interesa volcar las \emph{últimas
+direcciones} del bloque de memoria que contiene la pila ya que nuestro
+programa no hace demasiadas cosas. En tamaño a volcar puede requerir
+cierta prueba y error. Para este programa en mi sistema, un valor de
+{\verb!0x4000!} es suficiente para acceder al área de
+la pila donde se encuentran los datos que nos interesan:
+
+\begin{lstlisting}
+$ ./uhg 977844 $((0x7ffff68e9000 - 0x4000)) \
+> $((0x4000))| strings -n5
+/lib/x86Q
+Introduce la claoduce la clave:
+////////////////
+__libc_early_`
+x86_64
+./password1
+SHELL=/bin/bash
+SESSION_MANAGER=local/roor:@/tmp/.ICE-unix/1658,unix/lena:
+/tmp/.ICE-unix/1658
+WINDOWID=150994946
+QT_ACCESSIBILITY=1
+XDG_CONFIG_DIRS=/etc/xdg
+--a partir de aquí las variables de entorno continuan--
+\end{lstlisting}
+
+En lugar de volcar los datos en la consola, los vamos a volcar en un
+fichero:
+
+\begin{lstlisting}
+$ ./uhg 977844 $((0x7ffff68e9000 - 0x4000)) $((0x4000)) \
+> | strings -n 8 > 1.dump
+\end{lstlisting}
+
+Hemos aumentado el tamaño de las cadenas a buscar, pera obtener una
+lista más corta. Ahora, dejaremos que el usuario introduzca la clave en
+el programa de prueba y acceda a la parte interesante de la aplicación:
+
+\begin{lstlisting}
+$ ./password1
+PID: 977844 (buf: 0x7ffff68e7a70)
+Introduce la clave: ClaveSuperSecreta
+Acceso al sistema guay
+\end{lstlisting}
+
+En este punto, la clave introducida por el usuario está en memoria y
+podemos realizar un nuevo volcado de memoria:
+
+\begin{lstlisting}
+$ ./uhg 977844 $((0x7ffff68e9000 - 0x2000)) $((0x1000)) \
+> | strings -n 8 > 2.dump
+\end{lstlisting}
+
+Y ahora solo tenemos que comparar ambos ficheros:
+
+\begin{lstlisting}
+$ diff 1.dump 2.dump
+2c2,3
+< Introduce la claoduce la clave:
+---
+>  al sistema guay
+> ClaveSuperSecreta
+\end{lstlisting}
+
+Hay está la clave introducida por el usuario!!
+
+\hypertarget{proleguxf3menos}{%
+\sectiontext{white}{black}{PROLEGÓMENOS}\label{proleguxf3menos}}
+
+Como podéis ver, el uso de esta técnica para extraer claves es un poco
+complicado, ya que requiere realizar acciones sincronizadas con otro
+usuario. En realidad, el primer volcado lo podemos extraer de una
+ejecución que hagamos nosotros mismos, sin embargo, la segunda ejecución
+debe realizarse justo después de que el usuario haya introducido la
+clave, puesto cualquier llamada a función posterior puede corromper la
+pila y sobrescribir el valor introducido por el usuario. Esto sucede
+porque en nuestro programa estamos almacenando la clave en la pila. En
+caso de reservar memoria con {\verb!malloc!} en el
+{\verb!heap!} o en una variable global en el
+{\verb!.data!} segment no tendríamos este problema.
+
+Podéis probar a hacer esta modificación (almacenar la clave en el
+\emph{heap}) y usar las direcciones del mapa de memoria que usa el
+{\verb![heap]!} para extraer la clave. Ya me contaréis
+como os ha ido.
+
+\begin{entradilla}
+{\em Puede ser necesario explorar los distintos bloques de memoria para encontrar la información que nos interesa}
+\end{entradilla}
+
+Ante esta situación una solución es ejecutar el programa en un depurador
+(o engancharse al programa cuando se lance) y realizar el proceso
+completo tras poner un breakpoint justo tras la llamada a la función de
+interés. Observad que cuando usamos esta técnica con juegos no tenemos
+este problema puesto que somos nosotros mismos los que capturamos la
+memoria en el momento adecuado.
+
+Si bien, usar esta técnica en el mundo real puede no resultar viable en
+la mayoría de casos, si nos da ciertas ideas de que cosas deberíamos
+hacer cuando manejamos claves en nuestros programas:
+
+\begin{itemize}
+
+\item
+  No almacenar la clave como texto plano
+\item
+  Eliminar la clave de memoria (sobrescribiendo su valor) en cuando deje
+  de ser necesaria. Tened en cuenta que liberar memoria no es suficiente
+  en la mayoría de los casos y realmente debemos sobrescribir el bloque
+  de memoria que contenía la clave.
+\item
+  Si la clave es necesaria por un largo periodo de tiempo, es mejor
+  diseñar el sistema para utilizar un valor binario derivado de la clave
+  y no la clave en si misma.
+\end{itemize}
+
+Hay muchas posibilidades que explorar así que no dudéis en enviarnos
+vuestros hallazgos, o contarnos los problemas con los que os habéis
+encontrado.
+
+\hypertarget{conclusiones}{%
+\sectiontext{white}{black}{CONCLUSIONES}\label{conclusiones}}
+
+Y esto es todo por hoy. En próximas entregas profundizaremos en las
+vicisituded de dirigir una organización clandestina y los problemas de
+confianza con tus esbirros como genio diabólico que eventualmente
+dirigirá el mundo. Por el momento dejaremos a un lado los problemas
+emocionales y éticos de esa carga que algunos llevamos sobre nuestros
+hombros estoicamente, sin embargo, llegará un momento en el que no podré
+aguantar más y tendré que dejar fluir el torrente de emociones que
+inundan la psique de un genio diabólico. Hasta entonces, se despide de
+vosotros vuestra potencial todopoderosa regente del mundo. \EOP
+
+\end{multicols}

@@ -1,0 +1,538 @@
+\hypertarget{ratas:firmado1}{}\label{ratas:firmado}
+
+\pagestyle{ratas}
+
+\rput(7.9,-0.5){\resizebox{!}{12cm}{{\epsfbox{images/articulos/openssl_firma_header.eps}}}}
+
+\psset{fillstyle=solid}
+\psframe[fillcolor=black,opacity=0.7](2,-4.5)(17,0)
+
+
+
+% -------------------------------------------------
+% Cabecera
+\begin{flushright}
+
+
+{\color{introcolor}\mtitle{14cm}{Firmado Digital de Mensajes con OpenSSL}}
+
+\msubtitle{8cm}{Como firmar tus propios mensajes}
+
+{\sf\color{white}{ por Don Bit0}}
+
+%{{\psset{linecolor=black,linestyle=dotted}\psline(-12,0)}}
+\end{flushright}
+
+
+\vspace{2mm}
+% -------------------------------------------------
+
+
+%\lstset{language=C,frame=tb,framesep=5pt,basicstyle=\footnotesize}
+\lstset{language=C,frame=tb,framesep=5pt,basicstyle=\scriptsize}
+
+
+
+\intro{introcolor}{E}{n el artículo anterior vimos como usar algoritmos de cifrado
+asimétricos en general. En esta ocasión vamos a ver como usar esos
+algoritmos asimétricos para ofrecer servicios reales como el firmado de
+mensajes. Esto lo podemos hacer utilizando las funciones que ya
+conocemos, pero OpenSSL nos ofrece funciones alternativas que hacen este
+proceso más sencillo.}
+
+
+\begin{multicols}{2}
+
+
+Pero primero vamos a introducir el concepto de firmado digital. El
+firmado digital de un mensaje es un proceso por el cual se pretende
+asegurar que el mensaje que hemos recibido proviene de una determinada
+persona y además no ha sido modificado por una tercera parte.
+
+Con todo lo que sabemos deberías ser capaz de implementar una sencilla
+aplicación de firmado digital, sin embargo, OpenSSL nos ofrece algunas
+funciones adicionales que hacen la implementación de una aplicación de
+cifrado muy sencilla.
+
+\hypertarget{firmado-de-mensaje}{%
+\sectiontext{white}{black}{FIRMADO DE MENSAJES}\label{firmado-de-mensaje}}
+
+El proceso de firmado de un mensaje consiste en calcular un hash del
+mensaje y, a continuación, cifrar ese hash con la clave privada del
+usuario que lo firma. De esta forma se cumple que:
+
+\begin{itemize}
+
+\item
+  El hash original solo se puede recuperar usando la clave pública del
+  firmante. Lo que significa que la firma fue, necesariamente, cifrada
+  usando su clave privada que solo el sabe.
+\item
+  Una vez recuperado el hash que se almacena en la firma, el receptor
+  del mensaje puede calcular el hash del mensaje recibido y compararlo
+  con el que estaba cifrado en la firma, para verificar que el mensaje
+  no ha sido modificado.
+\end{itemize}
+
+Veamos como funcionaría esto usando la utilidad
+{\verb!openssl!} de la línea de comandos. Lo primero
+que vamos a hacer es generar dos claves para tres usuarios ficticios:
+Berto y Ali (o Bob y Alice si lo prefieres):
+
+\begin{lstlisting}
+$ openssl genrsa -out berto.pem 2048
+$ openssl genrsa -out ali.pem 2048
+\end{lstlisting}
+
+Ahora vamos a extraer las claves públicas que estarán disponibles para
+todos los usuarios de nuestros ejemplos:
+
+\begin{lstlisting}
+$ openssl rsa -in berto.pem  -pubout -out berto_publica.pem
+$ openssl rsa -in ali.pem  -pubout -out ali_publica.pem
+\end{lstlisting}
+
+Ahora imaginemos que Berto quiere enviar una factura a Ali y quiere que
+Ali pueda comprobar que la factura proviene de verdad de Berto y que
+además nadie la ha modificado en el camino. Berto haría algo como esto:
+
+\begin{lstlisting}
+$ openssl dgst -sha256 -sign berto.pem \
+> -out firma-factura.txt factura.txt
+\end{lstlisting}
+
+Esto genera un fichero binario, el cual podemos convertir en texto para
+añadirlo al mail o incluirlo al final de la factura. Para ello Berto
+puede usar el siguiente comando:
+
+\begin{lstlisting}
+$ openssl base64 -in firma-factura.txt \
+> -out firma-ascii-factura.txt
+\end{lstlisting}
+
+Llegados a este punto, Berto enviaría la factura
+{\verb!factura.txt!} junto con la
+{\verb!firma-ascii-factura.txt!}. Cuando Ali recibe la
+factura, puede verla directamente, la factura no está cifrada, pero
+tendrá que verificar que la firma digital incluida es correcta. Para
+ello haría algo como:
+
+\begin{lstlisting}
+$ openssl base64 -d -in fimra-ascii-factura.txt \
+> -out /tmp/firma.txt
+$ openssl dgst -sha256 -verify berto_publica.pem \
+> -signature /tmp/firma.txt factura.txt
+Verified OK
+\end{lstlisting}
+
+Imaginemos que ahora Marta, sigilosamente saca la factura del correo de
+Alicia, la modifica haciendo que la cantidad sea mayor y cambia el
+número de cuenta en el que debe pagarla. Sin embargo, no puede generar
+una firma que se verifique con la clave pública de Berto, puesto que no
+conoce su clave privada. De esta forma, la firma original no se
+corresponde con el fichero recibido y Alicia puede estar segura de que
+la factura ha sido modificada.
+
+Los comandos de arriba realmente hacen las siguientes operaciones:
+
+\begin{itemize}
+
+\item
+  Calcular el hash del documento factura.txt usando el algoritmo sha256
+\item
+  Cifrar el hash usando la clave privada del firmante.
+\end{itemize}
+
+\hypertarget{implementando-nuestro-propio-programa-de-firmado}{%
+\sectiontext{white}{black}{IMPLEMENTANDO TU PROPIO PROGRAMA DE FIRMADO}\label{implementando-nuestro-propio-programa-de-firmado}}
+
+Como os adelantábamos al principio, OpenSSL nos ofrece unas funciones
+que facilitan el firmado de mensajes y, sabéis que?, que funcionan igual
+que el resto de funciones que hemos estado usando hasta ahora.
+
+Este es el programa que implementa el firmado digital de cualquier
+fichero. Veamos primero todo el código y luego prestemos atención a las
+partes interesantes:
+
+\begin{lstlisting}[language=C]
+#include <openssl/evp.h>
+#include <openssl/err.h>
+#include <openssl/decoder.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+
+int main (int argc, char *argv[]) {
+  OSSL_LIB_CTX *libctx = NULL;
+  
+  /* Manejo de Claves Claves */
+  OSSL_DECODER_CTX *dctx = NULL;
+  EVP_PKEY_CTX     *pkctx = NULL;
+  EVP_PKEY         *priv_key = NULL;
+  
+  /* Función Hash*/
+  const EVP_MD      *md;
+  EVP_MD_CTX        *mdctx;
+
+  if (argc != 4) {
+    fprintf (stderr,
+             "Usage:¨\n%s private.pem hash-algo "
+             "input_file\n",
+         argv[0]);
+    exit (1);
+  }
+  
+  /* Usa el contexto de librería por defecto */
+  libctx = NULL; 
+
+  /* PASO 1: Adquirimos las claves para el firmado */
+  /* --------------------------------------------- */
+  dctx = OSSL_DECODER_CTX_new_for_pkey (&priv_key,
+                    NULL, NULL, NULL,
+                    EVP_PKEY_KEYPAIR,libctx, NULL);
+
+  /* Lee par de claves */
+  FILE *f = fopen (argv[1], "rb");
+  OSSL_DECODER_from_fp(dctx, f);
+  fclose (f);
+  OSSL_DECODER_CTX_free(dctx);
+  /* ------------------------------------- */
+  
+  /* PASO 2: Creamos función Hash */
+  /* ---------------------------- */
+  if ((md = EVP_get_digestbyname (argv[2])) == NULL) {
+        ERR_print_errors_fp (stderr);
+  }
+  mdctx = EVP_MD_CTX_create ();
+  /* ------------------------------------- */
+
+  /* PASO 3. Firmado del mensaje  */
+  /* ---------------------------- */
+  if (EVP_SignInit (mdctx, md) <= 0) {
+    ERR_print_errors_fp (stderr);
+    exit (1);
+  }
+
+  f = fopen (argv[3], "rb");
+  unsigned char buf[1024];
+  int           size;
+  while (!feof (f)) {
+    if ((size = fread (buf, 1, 1024, f)) <= 0) break;
+    EVP_SignUpdate (mdctx, buf, size);
+  }
+  unsigned char sig[1024];
+  unsigned int  sig_len;
+    
+  if (EVP_SignFinal(mdctx, sig, &sig_len, priv_key) <=0) {
+    ERR_print_errors_fp (stderr);
+    exit (1);
+  }
+  /* ------------------------------------- */
+  
+  /* PASO 4 Imprime firma en consolal */
+  /* ------------------------------------- */
+  fwrite (sig, 1 , sig_len, stdout);
+}
+\end{lstlisting}
+
+Como podéis ver el código es muy sencillo y lo podemos dividir en cuatro
+pasos:
+
+\begin{itemize}
+
+\item
+  La primera parte lee la clave privada del fichero que pasamos como
+  primer parámetro. Este es el mismo código que usamos en el artículo
+  sobre
+  \href{https://ibolcode.net/roor/2024-07-cifrado-asimetrico-con-openssl}{cifrado
+  asimétrico}.
+\item
+  La segunda parte configura el algoritmo de hash que queremos usar y
+  que pasamos como segundo parámetro. Este código también lo vimos en el
+  artículo sobre
+  \href{https://ibolcode.net/roor/2019-02-calculando-hashes-en-tus-programas-con-openssl}{hashing}.
+\item
+  El tercer paso es el cifrado del mensaje. Este código es nuevo, pero
+  debería resultaros muy familiar. Lo veremos en detalle en un segundo.
+\item
+  El cuarto paso consiste en volcar la forma en la consola al estilo
+  {\verb!openssl!}, es decir, los datos binarios para
+  procesarlos con herramientas externas si fuera necesario.
+\end{itemize}
+
+\begin{entradilla}
+{\em OpenSSL nos ofrece un interfaz muy fácil de usar para firmar cualquier tipo de información digital.}
+\end{entradilla}
+
+Utilizando los ficheros que usamos en la introducción con la utilidad
+{\verb!openssl!} podemos verificar que nuestro programa
+funciona correctamente, de la siguiente forma:
+
+\begin{lstlisting}
+$ gcc -O0 -g -o firmado firmado.c -lcrypto -lssl
+$ ./firmado berto.pem sha256 factura.txt | xxd -p
+94dbb4f53a85bb2e33d8c912f269767f792346cd00ce8daa29d8434373e5
+aad9295680a58953a79935d7d28b849ac7efd1cefc8524fb50405d21f835
+edccdeca858de8594e52cd0805ef37804ca7b2c77cacc4e7ce83e67e5ae9
+b0c91b3974aefefe3ecc162d2da9343f622bfd3e648eaf29ce7a8e833e52
+e132350d01b5945fb56037555f7052bc14ada4d1af9ed0267cdc532c50c3
+5c907f2394adead8ed2a2834bfe008607c254a8c10a0b4dbfe1d1a9f68ba
+6b28d74dadf22d8bdee35f9c5c1f21308d0b56ddac0f1596df2b28411f5a
+bedf4264a0ee7814954b1ed2bfbdff13b45376fd3fe37de670a32acbd7d0
+385f529d5223b1ecdff968833a766048
+$ openssl dgst -sha256 -sign berto.pem factura.txt | xxd -p
+94dbb4f53a85bb2e33d8c912f269767f792346cd00ce8daa29d8434373e5
+aad9295680a58953a79935d7d28b849ac7efd1cefc8524fb50405d21f835
+edccdeca858de8594e52cd0805ef37804ca7b2c77cacc4e7ce83e67e5ae9
+b0c91b3974aefefe3ecc162d2da9343f622bfd3e648eaf29ce7a8e833e52
+e132350d01b5945fb56037555f7052bc14ada4d1af9ed0267cdc532c50c3
+5c907f2394adead8ed2a2834bfe008607c254a8c10a0b4dbfe1d1a9f68ba
+6b28d74dadf22d8bdee35f9c5c1f21308d0b56ddac0f1596df2b28411f5a
+bedf4264a0ee7814954b1ed2bfbdff13b45376fd3fe37de670a32acbd7d0
+385f529d5223b1ecdff968833a766048
+\end{lstlisting}
+
+Como podéis ver el contenido del fichero de firma (antes de convertirlo
+a base64) es el mismo que el generado por nuestro programa. Echemos un
+ojo al código para cerrar esta sección:
+
+\hypertarget{proceso-de-firmado}{%
+\sectiontext{white}{black}{PROCESO DE FIRMADO}\label{proceso-de-firmado}}
+
+Como sucede con la mayoría de funciones {\verb!EVP_!}
+que ya hemos visto, el proceso de firmado, funciona básicamente como el
+proceso de generación de un hash. De hecho, eso es lo que el programa
+hace, excepto por la última llamada. Veamos como funcionan las tres
+funciones que nos interesa :
+
+\begin{lstlisting}[language=C]
+  EVP_get_digestbyname (argv[2]);
+  mdctx = EVP_MD_CTX_create ();
+  
+  EVP_SignInit (mdctx, md);
+   ...
+\end{lstlisting}
+
+Como es típico con el interfaz {\verb!EVP_!}, lo
+primero que tenemos que hacer es inicializar el contexto. En este caso,
+la inicialización es exactamente la misma que usamos para generar
+hashes, pero utilizando {\verb!EVP_SignInit!} en lugar
+de {\verb!EVP_DigestInit!}. El parámetro más
+importante para la inicialización es la función hash y el contexto para
+calcularlo que obtenemos con las funciones
+{\verb!EVP_get_digestbyname!} y
+{\verb!EVP_MD_CTX_create!}.
+
+\begin{entradilla}
+{\em El proceso de verificación de firma digital es muy sencillo utilizando las funciones ofrecidas por OpenSSL}
+\end{entradilla}
+
+Una vez que hayamos inicializado nuestro contexto, solamente tendremos
+que pasar el contenido del fichero que queremos firmar usando la función
+{\verb!EVP_SignUpdate!}, la cual funciona exactamente
+igual que {\verb!EVP_DigestUpdate!}. El fragmento de
+código siguiente, nos muestra una posible forma de leer el contenido del
+fichero a cifrar e introducir los datos para el cálculo del hash.
+
+\begin{lstlisting}[language=C]
+ f = fopen (argv[3], "rb");
+  unsigned char buf[1024];
+  int           size;
+  while (!feof (f)) {
+    if ((size = fread (buf, 1, 1024, f)) <= 0) break;
+    EVP_SignUpdate (mdctx, buf, size);
+  }
+\end{lstlisting}
+
+Una vez que hayamos introducido todos los datos tenemos que llamar a
+{\verb!EVP\_SignFinal!} la cual requiere un parámetro
+más que {\verb!EVP\_DigestFinal!}, ese parámetro no es
+otro que la clave privada que vamos a usar para la firma.
+
+\begin{lstlisting}[language=C]
+  unsigned char sig[1024];
+  unsigned int  sig_len;
+  
+  EVP_SignFinal(mdctx, sig, &sig_len, priv_key)
+\end{lstlisting}
+
+Nótese que la firma final se realiza con el algoritmo asociado a la
+clave. Si hemos utilizado una clave RSA 2048, la firma tendrá un tamaño
+de 256 bytes (2048 bits), y el tamaño del hash tendrá que ser menor que
+esos 2048 bits si no queremos perder información. Recordad que RSA
+genera bloques cifrados del tamaño de la calve usada.
+
+Como podéis ver, las funciones {\verb!EVP\_Sign*!}
+resultan muy convenientes para firmar mensajes, haciendo que el proceso
+resulte muy sencillo.
+
+\hypertarget{verificando-una-firma-digital}{%
+\sectiontext{white}{black}{VERIFICANDO UNA FIRMA DIGITAL}\label{verificando-una-firma-digital}}
+
+De la misma forma que OpenSSL nos ofrece funciones para el firmado de
+mensajes también nos ofrece funciones para verificar si una determinada
+firma digital es correcta o no. Como os podéis imaginar disponemos de un
+interfaz del tipo {\verb!EVP_!} y en este caso las
+tres funciones que debemos usar tienen como prefijo
+{\verb!EVP_Verify!}.
+
+Aquí tenéis el código de un sencillo programa capaz de verificar si una
+determinada firma digital es correcta. Podéis usar este programa para
+comprobar la firma generada usando la utilidad de línea de comando
+{\verb!openssl!} al principio de este artículo.
+
+Aquí tenéis el código.
+
+\begin{lstlisting}[language=C]
+#include <openssl/evp.h>
+#include <openssl/err.h>
+#include <openssl/decoder.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+
+int main (int argc, char *argv[]) {
+  OSSL_LIB_CTX *libctx = NULL;
+  
+  /* Manejo de Claves */
+  OSSL_DECODER_CTX *dctx = NULL;
+  EVP_PKEY_CTX     *pkctx = NULL;
+  EVP_PKEY         *pub_key = NULL;
+  
+  /* Función Hash*/
+  const EVP_MD      *md;
+  EVP_MD_CTX        *mdctx;
+
+  if (argc != 5) {
+    fprintf (stderr, "Usage:¨\n%s public.pem hash-algo "
+                     "input_file firma\n",
+         argv[0]);
+    exit (1);
+  }
+  libctx = NULL; /* Usa el contexto de librería por defecto */
+
+  /* PASO 1: Adquirimos las claves para el firmado */
+  dctx = OSSL_DECODER_CTX_new_for_pkey (&pub_key,
+                    NULL, NULL, NULL,
+                    EVP_PKEY_PUBLIC_KEY,libctx, NULL);
+
+  /* Lee clave pública */
+  FILE *f = fopen (argv[1], "rb");
+  OSSL_DECODER_from_fp(dctx, f);
+  fclose (f);
+  OSSL_DECODER_CTX_free(dctx);
+
+  /* PASO 2: Lee firma */
+  int           size;
+  int           esig_len = 0;
+  unsigned char esig[1024];
+  
+  f = fopen (argv[4], "rb");
+  if ((esig_len = fread (esig, 1, 1024, f)) < 0){
+    fprintf (stderr, "Error leyendo firma digital\n");
+  }
+  fclose (f);
+
+  /* PASO 3: creamos función Hash */
+  if ((md = EVP_get_digestbyname (argv[2])) == NULL) {
+        ERR_print_errors_fp (stderr);
+  }
+
+  mdctx = EVP_MD_CTX_create ();
+
+  /* PASO 4: Verificamos la firma*/
+  if (EVP_VerifyInit (mdctx, md) <= 0) {
+    ERR_print_errors_fp (stderr);
+    exit (1);
+  }
+
+  f = fopen (argv[3], "rb");
+  unsigned char buf[1024];
+
+  while (!feof (f)) {
+    if ((size = fread(buf,1,1024,f))<= 0)
+       break;
+    EVP_VerifyUpdate (mdctx, buf, size);
+  }
+  unsigned char sig[1024];
+  unsigned int  sig_len;
+    
+  if (EVP_VerifyFinal(mdctx,esig, esig_len,
+                      pub_key) <=0) {
+    printf ("Firma incorrecta\n");
+    exit (1);
+  }
+  printf ("Verificación OK\n");
+}
+\end{lstlisting}
+
+Como podéis ver, el programa es exactamente igual al que hemos creado
+para generar firmas digitales con dos salvedades.
+
+\begin{itemize}
+
+\item
+  La primera es que tenemos que leer la forma en memoria para poder
+  comprobar si es correcta
+\item
+  La segunda es que la función
+  {\verb!EVP_VerificaFinal!} recibe unos parámetros
+  bastante diferentes a la función
+  {\verb!EVP_SignFinal!}.
+\end{itemize}
+
+Sobre la primera diferencia no hay mucho que decir, simplemente leemos
+el fichero que recibimos como parámetro en memoria. Esa es la firma
+digital en formato binario generada por nuestra aplicación o por
+{\verb!openssl!}.
+
+Respecto de la segunda, {\verb!EVP_VerifyFinal!}
+recibe como parámetro la firma que queremos verificar y la clave pública
+de quien dice haber firmado el mensaje y nos devolverá 1 si la firma es
+correcta y 0 sino. Recordad que {\verb!EVP_SignFinal!}
+recibía como parámetro un buffer en el que se almacenaría la clave, una
+variable para almacenar si tamaño y la clave \textbf{privada} para
+generar la firma.
+
+Ahora podéis compilar este programa y comprobar que es capaz de
+verificar firmas generadas con {\verb!openssl dgst!}.
+
+
+\begin{lstlisting}
+$ gcc -O0 -g -o verificador verificador.c -lcrypto -lssl
+$ openssl dgst -sha256 -sign berto.pem -out firma1.sign \
+> factura.txt
+$ openssl dgst -sha256 -verify berto_publica.pem -signature \
+> firma1.sign factura.txt
+Verified OK
+$ ./verificador berto_publica.pem sha256 factura.txt \
+> firma1.sign
+Verificación OK
+$ echo "FICHERO MODIFICADO" >> factura.txt
+$ openssl dgst -sha256 -verify berto_publica.pem -signature \
+> firma1.sign factura.txt
+Verification failure
+$ ./verificador berto_publica.pem sha256 factura.txt \
+> firma1.sign
+Firma incorrecta
+\end{lstlisting}
+
+\hypertarget{conclusiones}{%
+\sectiontext{white}{black}{CONCLUSIONES}\label{conclusiones}}
+
+En este artículo hemos visto como utilizar OpenSSL para generar firmas
+digitales de cualquier fichero que queremos usando las funciones
+especiales que ofrece para estos menesteres. De la misma forma, hemos
+aprendido como verificar si una firma digital es válida y hemos escrito
+dos sencillos programas para generar firmas y verificarlas que funcionan
+perfectamente con la utilidad {\verb!openssl!}. Seguid
+sintonizados, en el próximo número vamos a continuar explorando el
+extenso API que ofrece OpenSSL. \EOP
+
+%\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+\rput(5.0,-12.3){\resizebox{!}{25.1cm}{{\epsfbox{images/promo/promo02.eps}}}}
+\raggedcolumns
+\clearpage
+\end{multicols}
+
+

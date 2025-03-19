@@ -1,0 +1,1125 @@
+\hypertarget{como:python1}{}\label{como:python}
+
+\pagestyle{como}
+
+\rput(7.9,-0.5){\resizebox{!}{14cm}{{\epsfbox{images/articulos/python_header.eps}}}}
+
+\psset{fillstyle=solid}
+\psframe[fillcolor=black,opacity=0.7](2,-4.5)(17,0)
+
+
+
+% -------------------------------------------------
+% Cabecera
+\begin{flushright}
+
+
+{\color{introcolor}\mtitle{14cm}{Usando Python como Lenguaje de Script}}
+
+\msubtitle{8cm}{Aprende a usar Python desde tus programas en C}
+
+{\sf\color{white}{ por Nelly Kerningham}}
+
+%{{\psset{linecolor=black,linestyle=dotted}\psline(-12,0)}}
+\end{flushright}
+
+
+\vspace{2mm}
+% -------------------------------------------------
+
+
+%\lstset{language=C,frame=tb,framesep=5pt,basicstyle=\footnotesize}
+\lstset{language=C,frame=tb,framesep=5pt,basicstyle=\scriptsize}
+
+
+
+\intro{introcolor}{¿}{Sabías que puedes usar Python como lenguaje de script en tus propios
+programas?. Y además ¿Sabías que así es como funcionan (más o menos)
+esas aplicaciones que convierten un programa python en un
+ejecutable?\ldots{} En este artículo te contamos como hacer ambas cosas!
+}
+
+\begin{multicols}{2}
+
+
+Python se ha convertido en un lenguaje muy popular en los últimos años
+en parte por su facilidad de uso y en parte por la enorme cantidad de
+módulos disponibles para hacer prácticamente cualquier cosa. Quizás el
+empuje final fue su adopción en los sistemas de \emph{Inteligencia
+Artificial} en los últimos años.
+
+Sea cual sea el secreto el éxito de Python, se trata de un lenguaje
+potente y que merece la pena aprender. Incluyéndolo como lenguaje de
+script en nuestros programas añadimos fácilmente infinidad de
+posibilidades, abriendo la puerta a sofisticadas aplicaciones gracias a
+la enorme variedad de módulos disponibles. Curiosamente, Python no suele
+ser la principal elección como lenguaje de script para una aplicación y
+hacia el final del artículo veremos el porqué de ello. Lua o Lisp son
+elecciones más habituales, pero eso no significa que Python no pueda ser
+usado de la misma forma. En este artículo os contaremos como incluir
+Python como lenguaje de script o, si lo preferís, de extensión en
+vuestros programas. Anecdóticamente, haciendo esto, veremos una posible
+forma de convertir nuestros programas Python en ejecutables. La técnica
+que veremos es utilizada por algunas herramientas bastante
+populares\ldots{} Ahí lo dejo.
+
+\begin{entradilla}
+{\em Python es uno de los lenguajes más populares de la actualidad y puede resultarnos útil aprender a extenderlo o usarlo en nuestros programas}
+\end{entradilla}
+
+Si\ldots{} igual que todos esos videos en Internet\ldots{} Pero esta vez
+contándoos como se hace y no como se usa un determinado programa.
+
+\hypertarget{pre-requisitos}{%
+\sectiontext{white}{black}{PRE-REQUISITOS}\label{pre-requisitos}}
+
+Es más que probable que en vuestro sistema Python este ya instalado. Y
+también es más que probable que tengáis todos los paquetes necesarios,
+pero en caso de que no que no cunda el pánico. Enseguida os decimos que
+tenéis que instalar. El código que mostraremos en este artículo ha sido
+probado con Python 3.11, así que debéis instalar el paquete de vuestra
+distribución que os proporcione esa versión o una mayor.
+
+Además necesitaremos el paquete de desarrollo. El cual normalmente tiene
+el mismo nombre pero añadiendo el sufijo {\verb!-dev!}
+al nombre. Para el caso de Debian y derivados podéis instalar los
+paquetes necesarios con el siguiente comando.
+
+\begin{lstlisting}
+$ sudo apt install python3-dev
+\end{lstlisting}
+
+Esto también instalará Python en caso de que no estuviera instalado.
+
+También necesitaremos el compilador de C para poder generar nuestros
+programas. En caso de que no lo hayáis instalado ya, lo podéis hacer con
+el siguiente comando:
+
+\begin{lstlisting}
+$ sudo apt install build-essential
+\end{lstlisting}
+
+Si utilizáis otras distribuciones seguro que os resulta muy secillo
+encontrar los paquetes necesarios (los nombres serán muy parecidos).
+Como alternativa, también podéis probar todo lo que os contemos en este
+artículo en un contenedor docker:
+
+\begin{lstlisting}
+$ docker run --rm -it -v /tmp:/tmp/code \
+> --name python debian /bin/bash
+\end{lstlisting}
+
+El comando de arriba además de iniciar un contenedor con un sistema de
+ficheros Debian, hace el directorio {\verb!/tmp!}
+accesible en el contenedor a través de la ruta
+{\verb!/tmp/code!} para que podáis intercambiar
+ficheros entre el host y el contenedor fácilmente.
+
+\hypertarget{un-intuxe9rprete-muxednimo}{%
+\sectiontext{white}{black}{UN INTÉRPRETE MÍNIMO}\label{un-intuxe9rprete-muxednimo}}
+
+Vamos a comenzar despacito creando un intérprete Python mínimo, es
+decir, un programa C que pueda ejecutar código Python, lo cual es mucho
+más fácil de lo que podría parecer. Aquí está el programa.
+
+\begin{lstlisting}[language=C]
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+
+int
+main(int argc, char *argv[])
+{
+  Py_Initialize ();
+  PyRun_SimpleString("from os import uname\n"
+     "print('Sistema', "
+     "uname().sysname,uname().machine)\\n");
+             
+  if (Py_FinalizeEx() < 0) {
+    exit(1);
+  }
+  return 0;
+}
+\end{lstlisting}
+
+El programa solo necesita tres funciones. Una para inicializar el
+intérprete ({\verb!Py_Initialize()!}), otra para
+liberar los recursos al terminar
+({\verb!Py_FinalizeEx()!}), y una tercera función para
+ejecutar cualquier cadena de caracteres como código Python.
+
+En este caso un sencillo programa que nos dice el sistema operativo y el
+tipo de máquina en el programa se está ejecutando.
+
+\begin{entradilla}
+{\em Ejecutar código Python desde un programa en C, require solo de 3 funciones}
+\end{entradilla}
+
+La constante/macro {\verb!PY_SSIZE_T_CLEAN!} es
+necesaria (en las versiones más recientes de Python) para poder utilizar
+ciertas cadenas de formato al interpretar parámetros en funciones. En un
+ratito veremos de que se trata todo eso, pero en general, si hacéis esto
+con una versión reciente de Python simplemente incluir ese
+{\verb!#define!} antes de incluir
+{\verb!Python.h!}.
+
+\begin{quote}
+{\verb!PY_SSIZE_T_CLEAN!} hace que el tipo de la
+longitud de la lista de argumentos se defina internamente como
+{\verb!Py_ssize_t!} en lugar de
+{\verb!int!} como sucedía en las versiones anteriores a
+3.9.
+\end{quote}
+
+Podemos compilar este programa utilizando la utilidad
+{\verb!python3-config!} para obtener los parámetros de
+compilación correctos para nuestro sistema.
+
+\begin{lstlisting}
+$ gcc -o example01 example01.c `python3-config --cflags`\
+> `python3-config --ldflags --embed`
+\end{lstlisting}
+
+\hypertarget{ejecutando-scripts}{%
+\sectiontext{white}{black}{EJECUTANDO SCRIPTS}\label{ejecutando-scripts}}
+
+Hemos visto como ejecutar código almacenado en una cadena, lo cual es
+güay, pero no super güay. Así que vamos a modificar el programa para que
+pueda ejecutar cualquier script almacenado en un fichero. El programa es
+más sencillo de lo que podáis pensar, aunque quizás un poco inesperado.
+
+\begin{lstlisting}[language=C]
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+
+int
+main(int argc, char *argv[])
+{
+  Py_Initialize ();
+  FILE *fd = fopen (argv[1], "rb");
+  PyRun_SimpleFile (fd, argv[1]);
+  fclose (fd);
+  if (Py_FinalizeEx() < 0) {
+    exit(120);
+  }
+  return 0;
+}
+\end{lstlisting}
+
+La función {\verb!PyRun_SimpleFile!} hace la magia,
+pero tenemos que pasar un objeto de tipo {\verb!FILE*!}
+en lugar de el nombre del fichero. Observad que siempre podéis leer el
+fichero en memoria y utilizar
+{\verb!PyRun_SimpleString!} para ejecutarlo, aunque
+eso requiere más código.
+
+\begin{quote}
+La función {\verb!PyRun_SimpleFIle!} solamente utiliza
+el segundo parámetro para mostrar errores, los datos los toma del primer
+parámetro
+\end{quote}
+
+Para terminar con esto, y antes de profundizar en el API que nos ofrece
+Python, comentaros que existen muchas variaciones de estas funciones que
+acabamos de ver, las cuales podéis consultar en
+\href{https://docs.python.org/3/c-api/veryhigh.html}{esta página}.
+
+\hypertarget{bonus-ejecutando-scripts-remotos}{%
+\sectiontext{white}{black}{EJECUTANDO SCRIPTS REMOTOS}\label{bonus-ejecutando-scripts-remotos}}
+
+Seguro que a alguno se le ha pasado por la cabeza\ldots{} que tal si en
+lugar de un fichero usamos un socket?\ldots{} Podríamos ejecutar scripts
+directamente desde un servidor remoto\ldots. Esto mola bastante no?.
+
+Para poder hacer esto, necesitamos una pequeña modificación de nuestro
+programa:
+
+\begin{lstlisting}[language=C]
+#define PY_SSIZE_T_CLEAN
+#include <Python.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+
+int main(int argc, char *argv[]) {
+  int                s;
+  struct sockaddr_in addr;
+
+  Py_Initialize ();
+
+  addr.sin_family      = AF_INET;
+  addr.sin_addr.s_addr =  inet_addr("127.0.0.1");
+  addr.sin_port        = htons(5555);
+  
+  if ((s = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
+      return -1;
+  if (connect (s, (struct sockaddr*)&addr, 16) < 0)
+      return -1;
+  
+  FILE *fd = fdopen (s, "r");
+
+  PyRun_SimpleFile (fd, "REMOTO");
+  close (s);
+  if (Py_FinalizeEx() < 0) {
+    exit(120);
+  }
+  return 0;
+}
+\end{lstlisting}
+
+El programa ahora se conecta al puerto {\verb!5555!} de
+{\verb!localhost!} y ejecuta lo que sea que reciba
+desde ahí. Lo único que tenemos que hacer es utilizar la función
+{\verb!fdopen!} para convertir nuestro descriptor de
+ficheros (el socket) en un objeto de tipo
+{\verb!FILE *!}. Una vez hecho eso el resto del
+programa funciona exactamente igual, pero tomando el código de la red en
+lugar de desde un fichero.
+
+Para probarlo, en un terminal podéis lanzar netcat con una línea como
+esta:
+
+\begin{lstlisting}
+cat simple.py | nc -lN -p 5555
+\end{lstlisting}
+
+O si lo preferís podéis usar nuestra utilidad
+\href{https://ibolcode.net/dmo-blog/tools.php}{NetKitty}:
+
+\begin{lstlisting}
+cat simple.py | nk -server T,5555
+\end{lstlisting}
+
+Observad que con netcat tenemos que usar el flag
+{\verb!-N!} el cual le dice a netcat que cierre la
+conexión al recibir un {\verb!EOF!} (\emph{End Of
+File}). Si no hacemos esto, el programa no se ejecutará directamente.
+
+Ahora podemos ejecutar nuestro programa para ejecutar cualquier script
+remoto desde el servidor que queramos. Como nota final, una alternativa
+a la llamada a {\verb!fdopen!} sería utilizar esto:
+
+\begin{lstlisting}[language=C]
+    dup2 (s, 0);
+    PyRun_SimpleFile (stdin, "REMOTO");
+\end{lstlisting}
+
+\hypertarget{llamando-a-funciones-python}{%
+\sectiontext{white}{black}{LLAMANDO A FUNCIONES Python}\label{llamando-a-funciones-python}}
+
+Hasta ahora hemos visto como integrar el intérprete Python en nuestro
+programa, pero todavía no sabemos como intercambiar información entre el
+programa principal y el código Python, lo cual limita muchísimo la
+utilidad de incluir el intérprete en nuestra aplicación. Lo ideal sería
+poder llamar a funciones Python desde nuestro programa C y viceversa.
+Empecemos por el primer caso.
+
+\begin{entradilla}
+{\em Python ofrece un potente interfaz para ejecutar funciones desde C}
+\end{entradilla}
+
+Para ello vamos a crear una sencilla función de ejemplo en Python a la
+que llamaremos desde nuestro programa C. Algo como esto:
+
+\begin{lstlisting}[language=Python]
+def foo (s, a, b):
+    print ("cadena: " + s)
+    return a + b
+\end{lstlisting}
+
+La función es bastante inútil, pero nos permite ver como podemos pasar
+distintos tipos de datos (cadenas de caracteres y enteros) y también
+como retornar esos valores al programa C.
+
+Para poder ejecutar esta función desde nuestro programa C debemos hacer
+unas cuantas cosas:
+
+\begin{itemize}
+
+\item
+  Primero importar el módulo o cargar el fichero
+  {\verb!.py!} en nuestro intérprete si lo preferís.
+\item
+  Segundo debemos encontrar la función que nos interesa dentro del
+  módulo. En nuestro caso solo hemos definido una función, pero lo
+  normal es que un módulo ofrezca varias funciones.
+\item
+  Tercero, construir la lista de parámetros que queremos pasar a la
+  función
+\item
+  Cuarto, ejecutar la función
+\item
+  Y finalmente, recuperar el valor retornado por la función.
+\end{itemize}
+
+Os mostramos el código completo para hacer todo esto y luego vamos paso
+a paso por las partes más relevantes:
+
+\begin{lstlisting}[language=C]
+(...)
+  PyObject *pModule = PyImport_ImportModule ("func");
+  
+  if (pModule) {
+    /* Obtengamos la función a llamar */
+    PyObject *pFunc = PyObject_GetAttrString
+                          (pModule, "foo");
+    if (pFunc && PyCallable_Check(pFunc)) {
+      PyObject *pArgs = PyTuple_New (3); // 3 Parámetros
+      PyObject *pValue = PyUnicode_FromString
+                            ("Hola Mundo!");
+      PyTuple_SetItem (pArgs, 0, pValue);
+      
+      pValue = PyLong_FromLong (10);
+      PyTuple_SetItem (pArgs, 1, pValue);
+      pValue = PyLong_FromLong (20);
+      PyTuple_SetItem (pArgs, 2,pValue);
+      
+      pValue = PyObject_CallObject (pFunc, pArgs);
+      
+      Py_DECREF(pArgs);
+      printf ("Resultado : %ld\n", PyLong_AsLong(pValue));      
+    }
+    
+    Py_XDECREF(pFunc);
+    Py_DECREF (pModule);
+  }
+(...)
+\end{lstlisting}
+
+\hypertarget{importando-el-muxf3dulo-y-la-funciuxf3n}{%
+\sectiontext{white}{black}{IMPORTANDO MÓDULO Y FUNCIÓN}\label{importando-el-muxf3dulo-y-la-funciuxf3n}}
+
+Como podéis ver este proceso es bastante inmediato. Para importar el
+módulo utilizamos {\verb!PyImport_ImportModule!}
+seguido de el nombre del fichero sin la extensión. El objeto función lo
+podemos obtener utilizando la función
+{\verb!PyObject_GetAttrString!}.
+
+En ambos casos las funciones nos devuelven un
+{\verb!PyObject!}. Prácticamente todo en Python es un
+objeto, así que ese será el tipo fundamental de casi todas las llamadas.
+La función {\verb!PyObject_GetAttrString!} nos permite
+obtener referencias a otros objetos en el módulo Python. Por ejemplo, si
+declaramos una variable global de la siguiente forma:
+
+\begin{lstlisting}[language=Python]
+bar = 10
+def foo (s, a, b):
+    print ("cadena: " + s)
+    return a + b
+\end{lstlisting}
+
+Podemos acceder al valor de la variable local de la siguiente forma:
+
+\begin{lstlisting}[language=C]
+    PyObject *bar = PyObject_GetAttrString (pModule, "bar");
+    printf ("bar = %ld\n", PyLong_AsLong(bar));
+\end{lstlisting}
+
+Que imprimirá el valor 10. La variable la podemos usar inmediatamente,
+pero para llamar a la función tenemos que hacer algunas cosas más. Por
+eso, es recomendable comprobar que el objeto que hemos obtenido es algo
+a lo que podemos llamar, es decir, una función y no una variable, por
+ejemplo. Esto lo hace la siguiente línea:
+
+\begin{lstlisting}[language=C]
+  if (pFunc && PyCallable_Check(pFunc)) {
+\end{lstlisting}
+
+\hypertarget{construyendo-la-lista-de-paruxe1metros}{%
+\sectiontext{white}{black}{CONSTRUYENDO LA LISTA DE PARÁMETROS}\label{construyendo-la-lista-de-paruxe1metros}}
+
+Ahora que ya tenemos el objeto que representa la función que queremos
+llamar debemos construir la lista de parámetros. En Python, desde C, los
+parámetros se pasan como una tupla. Bueno, hay algunas opciones extras,
+pero a dejarlo así para no complicar la cosa más de lo necesario. Lo
+otro que debemos saber es que Python 3 usa Unicode para representar
+todas sus cadenas, y esa es la mejor forma de pasar cadenas de un lado a
+otro.
+
+Sabiendo todo esto el código para construir la lista de parámetros es
+bastante obvio.
+
+\begin{lstlisting}[language=C]
+  PyObject *pArgs = PyTuple_New (3); // 3 Parámetros
+  PyObject *pValue = PyUnicode_FromString ("Hola Mundo!");
+  PyTuple_SetItem (pArgs, 0, pValue);
+      
+  pValue = PyLong_FromLong (10);
+  PyTuple_SetItem (pArgs, 1, pValue);
+  pValue = PyLong_FromLong (20);
+  PyTuple_SetItem (pArgs, 2,pValue);
+\end{lstlisting}
+
+Lo primero que hacemos es crear una tupla de 3 elementos que contendrá
+los parámetros que queremos pasar a nuestra función. Recordad, una
+cadena de caracteres y dos enteros.
+
+El objeto tupla contiene elementos de tipo
+{\verb!PyObject*!}, así que tendremos que generar un
+objeto por cada parámetro que queremos pasar a la función. La objeto que
+contiene la cadena de caracteres lo generamos usando la función
+{\verb!PyUnicode_FromString!} y los dos número
+utilizando {\verb!PyLong_FromLong!}. Luego simplemente
+tenemos que añadir los objetos a la tupla usando
+{\verb!PyTuple_SetItem!}.
+
+De la misma forma que las cadenas de caracteres en Python se almacenan
+en Unicode, los enteros se almacenan como
+{\verb!long!}. Veremos que para ciertas operaciones
+podemos indicar otros tipos de enteros, pero internamente, todos son
+manejados como {\verb!long!}.
+
+\hypertarget{llamando-a-la-funciuxf3n-y-obteniendo-el-resultado}{%
+\sectiontext{white}{black}{LLAMANDO A LA FUNCIÓN Y OBTENIENDO EL RESULTADO}\label{llamando-a-la-funciuxf3n-y-obteniendo-el-resultado}}
+
+Ahora ya tenemos todo listo para invocar la función usando
+{\verb!PyObject_CallObject!} la cual acepta como
+parámetros la función a ejecutar y la tupla conteniendo los parámetros
+que queremos pasar y nos devolverá, como no, un objeto
+{\verb!PyObject*!} con el resultado de la función.
+
+\begin{lstlisting}[language=C]
+  pValue = PyObject_CallObject (pFunc, pArgs);
+  printf ("Resultado : %ld\n", PyLong_AsLong(pValue));
+  
+  Py_DECREF(pArgs);
+  Py_DECREF(pValue);
+\end{lstlisting}
+
+En nuestro caso el resultado es un entero, así que podemos usar la misma
+función {\verb!PyLong_AsLong!} para convertir el valor
+en un {\verb!long!} que podamos utilizar en nuestro
+programa C.
+
+Al final del fragmento de código anterior vemos dos llamadas a
+{\verb!Py_DECREF!}. Python mantiene internamente un
+contador de referencias a cada objeto que maneja. Cada vez que es
+utilizado el valor se incrementa y cuando hemos terminado con el lo
+tenemos que decrementar. Cuando el contador llega a 0, los recursos
+asociados al objeto se liberan. Así que en nuestro caso debemos
+decrementar las referencia del valor retornado por la función y de los
+argumentos que ya no necesitamos. En este caso, esas dos llamadas son
+equivalentes a liberar la memoria asociada a ambos.
+
+\begin{entradilla}
+{\em Cuando manejemos objectos Python desde C debemos prestar atención a sus contadores de referencias}
+\end{entradilla}
+
+Os preguntaréis que pasa con el módulo y la función que también son
+{\verb!PyObject!}s\ldots{} efectivamente, también
+debemos decrementar el contador de la misma forma para que los recursos
+se liberen, una vez que no necesitemos utilizarlos más. En el caso de
+estos dos objetos, esto lo hacemos fuera del bloque que hace la llamada
+a la función:
+
+\begin{lstlisting}[language=C]
+    if (pFunc && PyCallable_Check(pFunc)) {
+      (...)
+    }    
+    Py_XDECREF(pFunc);
+    Py_DECREF (pModule);
+\end{lstlisting}
+
+Para liberar la función estamos utilizando
+{\verb!Py_XDECREF!} en lugar de
+{\verb!Py_DECREF!}. La diferencia entre ambos es que
+el primero acepta punteros {\verb!NULL!} y por lo tanto
+hace más comprobaciones que la segunda función. En nuestro caso, tal y
+como esta escrito el programa, es posible que
+{\verb!pFunc!} tenga valor
+{\verb!NULL!}, así que usamos
+{\verb!Py_XDECREF!}. El objeto
+{\verb!pModule!} no puede ser
+{\verb!NULL!} puesto que nos aseguramos al principio
+del programa de que así sea.
+
+Como podéis ver, el proceso de llamar una función Python desde C es muy
+sencillo aunque un poco tedioso. Ahora veremos como llamar una función C
+desde Python
+
+\hypertarget{creando-un-muxf3dulo}{%
+\sectiontext{white}{black}{CREANDO UN MÓDULO}\label{creando-un-muxf3dulo}}
+
+Para poder llamar código C desde Python, básicamente vamos a crear un
+módulo e importarlo en el intérprete de forma que el código Python que
+ejecutemos en el pueda acceder a las funciones de nuestro módulo. Suena
+más complicado de lo que realmente es.
+
+Para crear un módulo llamado {\verb!mimod!} en nuestro
+intérprete Python, debemos añadir las siguientes líneas a nuestro
+programa antes de {\verb!main!}:
+
+\begin{lstlisting}[language=C]
+static PyObject* mimod_test1 (PyObject *self, PyObject *args);
+
+static PyMethodDef mimodMethods[] = {
+  {"test1", mimod_test1, METH_VARARGS,
+            "Función de prueba cutre"},
+  {NULL, NULL, 0, NULL},
+};
+
+static PyModuleDef _Module = {
+  PyModuleDef_HEAD_INIT,
+  "mimod", NULL, -1, mimodMethods,
+  NULL, NULL, NULL, NULL
+};
+
+static PyObject* PyInit_mimod (void) {
+  return PyModule_Create (&_Module);
+}
+\end{lstlisting}
+
+Nuestro módulo tiene una única función llamada
+{\verb!test1!}, la cual está implementada con la
+función C {\verb!mimod_test1!}. La primera línea que
+añadimos es simplemente el prototipo de la función que necesitamos para
+poder definir la lista de funciones (métodos realmente) asociada a
+nuestro módulo. Esta lista se define en el siguiente bloque usando la
+estructura {\verb!PyMethodDef!}. En nuestro caso, hemos
+definido una única función, pero podéis añadir tantas entradas como
+queráis a este array para añadir funciones a vuestro módulo.
+
+\begin{entradilla}
+{\em  Cuando añadimos funciones a módulos tenemos varias opciones para indicar como queremos invocarlas} 
+\end{entradilla}
+
+Cada entrada tiene los siguientes campos:
+
+\begin{lstlisting}[language=C]
+{"test1", mimod_test1, METH_VARARGS,
+ "Función de prueba cutre"},
+\end{lstlisting}
+
+El primero es el nombre de la función en el intérprete Python, el nombre
+que usaremos para invocarla desde nuestros scripts. El segundo parámetro
+es el puntero a la función C que se debe ejecutar cuando llamamos a esta
+función desde Python. El cuarto parámetro es documentación de la función
+y el tercer parámetro nos define la signatura (tipo y número de
+parámetros) de la función. Este campo puede tomar los siguientes
+valores:
+
+\begin{itemize}
+
+\item
+  {\verb!METH_VARARGS!} es la forma más habitual de
+  definir la función en el que la función espera dos
+  {\verb!PyObjects*!}. El primero es el objeto
+  {\verb!self!} que, cuando se trata de un método en un
+  objeto representa el objeto asociado, pero cuando se trata de una
+  función contiene el objeto asociado al módulo que define la función.
+  El segundo son los parámetros almacenados en una tupla.
+\item
+  {\verb!METH_KEYWORS!} este debe ser combinado con
+  otros flags como {\verb!METH_VARARGS!},
+  {\verb!METH_FASTCALL!} o
+  {\verb!METH_METHOD!} y básicamente permite invocar
+  la función usando {\verb!keywords!}. La función
+  recibe un parámetro extra que contiene los
+  {\verb!keywords!} asociados a los parámetros.
+\item
+  {\verb!METH_FASTCALL!} solo admite parámetros
+  posicionales. El primer parámetro será {\verb!self!},
+  el segundo es un array C de {\verb!PyObject*!} y el
+  tercero es el número de parámetros
+\item
+  {\verb!METH_METHOD!} solo se puede usar en
+  combinación con {\verb!METH_FASTCALL!} y
+  {\verb!MET_KEYWORDS!} y añade la clase a la que
+  pertenece el método como parámetro después de
+  {\verb!self!}
+\item
+  {\verb!METH_NOARGS!} define funciones que no reciben
+  argumentos. Aún así, la función C sigue recibiendo el parámetro
+  {\verb!self!} como primer parámetro.
+\item
+  {\verb!METH_O!} define métodos que recibe un único
+  parámetro.
+\end{itemize}
+
+\hypertarget{terminando-de-definir-el-muxf3dulo}{%
+\sectiontext{white}{black}{TERMINANDO DE DEFINIR EL MÓDULO}\label{terminando-de-definir-el-muxf3dulo}}
+
+Una vez que hemos definido la lista de funciones que queremos que
+nuestro módulo incluya solo tenemos que rellenar una estructura
+{\verb!PyModuleDef!} para terminar su definición. Esta
+estructura contiene los siguientes campos.
+
+\begin{itemize}
+
+\item
+  El primer campo siempre debe ser
+  {\verb!PyModuleDef_HEAD_INIT!}
+\item
+  El nombre del módulo
+\item
+  Documentación para el módulo
+\item
+  Este parámetro nos permite definir un bloque de memoria asociado al
+  módulo en el que almacenar información. Un valor de
+  {\verb!-1!} indica que el módulo no necesita un
+  bloque de memoria para almacenar información. Las funciones pueden
+  acceder a esta información usando la función
+  {\verb!PyModule_GetState()!}.
+\item
+  El array con la definición de los métodos que expone el módulo
+\item
+  El resto de parámetros se utilizan para añadir funcionalidades
+  especiales al módulo, las cuales no vamos a poder comentar en este
+  artículo. Si estáis interesados en profundizar en este tema, solo
+  tenéis que hacérnoslo saber.
+\end{itemize}
+
+Una vez definida esta estructura, solo necesitamos una función adicional
+para crear el módulo. En nuestro caso la hemos llamado
+{\verb!PyInit_mimod!}. Esta función además de crear el
+módulo, puede realizar operaciones adicionales requeridas por el módulo,
+como reservar memoria, a adquirir recursos.
+
+Llegados a este punto solo tenemos que añadir el módulo al intérprete.
+Lo cual haremos con una línea como la siguiente:
+
+\begin{lstlisting}[language=C]
+  PyImport_AppendInittab ("mimod", &PyInit_mimod)
+\end{lstlisting}
+
+Como podéis ver, esta función recibe como parámetro la función que hemos
+definido antes y que es la encargada de crear realmente el módulo. Esta
+función hay que llamarla antes de
+{\verb!Py_Initialize()!} para que nuestro módulo se
+defina correctamente.
+
+\pagebreak
+
+\hypertarget{implementando-la-funciuxf3n.}{%
+\sectiontext{white}{black}{IMPLEMENTANDO LA FUNCIÓN}\label{implementando-la-funciuxf3n.}}
+
+En este punto tenemos definido nuestro módulo
+{\verb!mimod!} que incluye una función llamada
+{\verb!test1!}, la cual debe ser implementada por una
+función C que hemos llamado {\verb!mimod_test1!}.
+
+Esta función C hace lo mismo que la función Python que usamos en la
+primera parte del artículo. Recibe como parámetro una cadena de
+caracteres y dos números. Muestra la cadena de caracteres en pantalla y
+retorna la suma de los dos enteros. Super fácil no?. Esta es la pinta
+que tendría esa función:
+
+\begin{lstlisting}[language=C]
+static PyObject*
+mimod_test1 (PyObject *self, PyObject *args) {
+ char  *str;
+ int   a, b;
+ 
+ if (!PyArg_ParseTuple (args, "sii", &str, &a, &b))
+   return NULL;
+ printf ("TEST1: Cadena: '%s' Suma: %d\n", str, a+b);
+ 
+ return PyLong_FromLong(a+b);
+}
+\end{lstlisting}
+
+Como ya sabemos, al tratarse de una función de tipo
+{\verb!METH_VARARGS!} recibe dos parámetros:
+{\verb!self!} y los parámetros almacenados en una
+tupla.
+
+Las funciones de este tipo suelen obtener los parámetros utilizando la
+función {\verb!PyArg_ParseTuple!} que funciona como
+una especie de {\verb!scanf!} para los parámetros. En
+nuestro caso, la cadena de formato {\verb!sii!} le dice
+a la función que queremos extraer una cadena de caracteres
+({\verb!s!}) y dos enteros {\verb!i!}.
+Podéis encontrar una lista completa de los valores que podéis usar en la
+cadena de formato en la
+\href{https://docs.python.org/3/c-api/arg.html}{documentación oficial}.
+
+Para retornar el valor debemos convertir el valor que queramos en un
+objeto {\verb!PyObject!}, así que usaremos las mismas
+funciones que necesitamos para llamar a funciones Python desde C. En
+este caso, usamos {\verb!PyLong_FromLong!} para
+retornar un valor entero.
+
+\hypertarget{probando-nuestro-nuevo-python}{%
+\sectiontext{white}{black}{PROBANDO NUESTRO NUEVO Python}\label{probando-nuestro-nuevo-python}}
+
+Ha llegado la hora de probar nuestro programa, para ello vamos a
+utilizar una versión modificada del nuestro script de prueba:
+
+\begin{lstlisting}[language=Python]
+import mimod
+
+def foo (s, a, b):
+   print ("cadena: " + s)
+   c = mimod.test1 ("Adios Mundo", 1234, 4321)
+   print (c)
+   return a + b
+\end{lstlisting}
+
+En este caso estamos importando {\verb!mimod!} que es
+el módulo que hemos creado y registrado en el intérprete Python de
+nuestra aplicación. Mantenemos la función {\verb!foo!}
+que llama nuestro programa C, pero la extendemos para que llame a la
+función C {\verb!test1!} que exporta nuestro módulo. Si
+compilamos y ejecutamos el programa obtendremos algo como esto:
+
+\begin{lstlisting}
+$ gcc -o example03 example03.c `python3-config \
+> --cflags` `python3-config --ldflags --embed`
+$ ./example03
+ModuleNotFoundError: No module named 'func'
+\end{lstlisting}
+
+Oops, nuestro intérprete no es capaz de encontrar nuestro script.
+Podemos solucionar esto de distintas maneras. Copiando el fichero en uno
+de los directorios que contienen módulos Python, o modificando la
+variable de entorno {\verb!PYTHONPATH!} para que
+incluya el directorio actual. Esta última opción es más limpia y
+sencilla:
+
+\begin{lstlisting}
+$ PYTHONPATH=. ./example03
+cadena: Hola Mundo!
+TEST1: Cadena: 'Adios Mundo' Suma: 5555
+5555
+Resultado : 30
+\end{lstlisting}
+
+Perfecto, ahora podemos escribir programas C capaces de ejecutar scripts
+escritos en Python que pueden llamar a funciones internas definidas en
+el propio programa.
+
+\hypertarget{haciendo-el-programa-independiente}{%
+\sectiontext{white}{black}{HACIENDO EL PROGRAMA INDEPENDIENTE}\label{haciendo-el-programa-independiente}}
+
+En estos momentos, nuestro programa funciona perfectamente, pero esto
+sucede solamente porque se dan dos condiciones. La primera es que el
+intérprete de Python está instalado en nuestra máquina de desarrollo.
+Obviamente, necesitamos el intérprete para escribir un programa que lo
+use, sin embargo, nuestro ejemplo hasta el momento es un programa
+dinámico que utiliza la librería {\verb!libpython.so!}
+instalada en nuestro sistema.
+
+El segundo problema es que además de esa librería nuestro programa asume
+que existe una instalación de Python y, silenciosamente carga ciertos
+módulos del sistema al inicializar el intérprete.
+
+Teniendo en cuenta todo esto, nuestro objetivo es generar un programa
+que funcione como esperamos sin necesidad de instalar Python. Algo así
+como lo que hacen esas herramientas que convierte programas Python en
+ejecutables. Haremos esto por partes solucionando los distintos
+problemas de uno en uno.
+
+\hypertarget{configurando-el-intuxe9rprete}{%
+\sectiontext{white}{black}{CONFIGURANDO EL INTÉRPRETE}\label{configurando-el-intuxe9rprete}}
+
+Para poder conseguir nuestro objetivo lo primero que debemos hacer es
+tomar el control de la configuración de nuestro intérprete.
+
+Las nuevas versiones de Python incluyen un sistema para configurar el
+intérprete mucho más potente, permitiéndonos elegir en detalle como
+queremos configurar nuestro entorno. Podéis consultar la documentación
+sobre {\verb!PyConfig!} para los detalles. Nosotros
+solamente vamos a utilizar dos opciones.
+
+Usando este sistema, lo primero que vamos a hacer es forzar a nuestro
+intérprete a funcionar en modo aislado, es decir, sin acceder a los
+distintos módulos o librerías instaladas en nuestro sistema. Además nos
+interesa poder controlar el path de búsqueda de módulos, para no tener
+que usar la variable {\verb!PYTHONPATH!} cada vez que
+ejecutamos nuestro programa\ldots{} vale si, la podéis añadir a los
+scripts de inicialización de bash, pero es mejor si nosotros mismos la
+controlamos.
+
+El código siguiente muestra como utilizar el sistema de configuración de
+Python para hacer estas dos cosas.
+
+\begin{lstlisting}[language=Python]
+  PyStatus status;
+  PyConfig config;
+
+  PyConfig_InitPythonConfig (&config);
+  
+  config.module_search_paths_set = 1;
+  config.isolated = 1;
+  PyWideStringList_Append (&config.module_search_paths, L".");
+  
+  status = Py_InitializeFromConfig(&config);
+  if (PyStatus_Exception(status)) {
+    PyConfig_Clear(&config);
+    Py_ExitStatusException(status);
+  }
+  PyConfig_Clear(&config);
+\end{lstlisting}
+
+Como podéis ver, estamos activando el flag para definir el path de
+búsqueda de módulos y queremos ejecutar el intérprete en un entorno
+aislado. En el path de búsqueda incluimos el directorio actual para
+poder cargar nuestro módulo de prueba. En una aplicación real,
+probablemente queramos almacenar todos los scripts en un directorio
+concreto. Este es el lugar para hacerlo.
+
+Si compilamos y ejecutamos obtendremos algo como esto:
+
+\begin{lstlisting}
+$ ./example03
+Python path configuration:
+  PYTHONHOME = (not set)
+  PYTHONPATH = (not set)
+  program name = 'python3'
+  isolated = 1
+  environment = 0
+  user site = 0
+  safe_path = 1
+  import site = 1
+  is in build tree = 0
+  stdlib dir = '/usr/lib/python3.11'
+  sys._base_executable = '/usr/bin/python3'
+  sys.base_prefix = '/usr'
+  sys.base_exec_prefix = '/usr'
+  sys.platlibdir = 'lib'
+  sys.executable = '/usr/bin/python3'
+  sys.prefix = '/usr'
+  sys.exec_prefix = '/usr'
+  sys.path = [
+    '.',
+  ]
+Fatal Python error: init_fs_encoding: failed to get the Python codec of the filesystem encoding
+Python runtime state: core initialized
+ModuleNotFoundError: No module named 'encodings'
+
+Current thread 0x00007f1ce9222740 (most recent call first):
+  <no Python frame>
+\end{lstlisting}
+
+El programa muestra la configuración actual y el error que impide la
+ejecución del mismo. En este caso indica que no puede encontrar el
+módulo {\verb!encodings!}. Uno de esos módulos que se
+usan en la inicialización.
+
+\hypertarget{auxf1adiendo-los-muxf3dulos-perdidos}{%
+\sectiontext{white}{black}{AÑADIENDO LOS MÓDULOS PERDIDOS}\label{auxf1adiendo-los-muxf3dulos-perdidos}}
+
+Así que lo que vamos a hacer es incluir los módulos que necesitemos.
+Para ello crearemos un directorio llamado {\verb!libs!}
+(pero podéis llamarlo como queráis) he iremos copiando en el los módulos
+que necesitemos. Pero antes debemos añadir este nuevo directorio al path
+de búsqueda de módulos. Algo como esto:
+
+\begin{lstlisting}[language=Python]
+PyWideStringList_Append (&config.module_search_paths,
+                           L".");
+PyWideStringList_Append (&config.module_search_paths,
+                           L"./libs");
+\end{lstlisting}
+
+Ahora podemos copiar el módulo {\verb!encodings!} que
+debería encontrarse en {\verb!/usr/lib/pythonX.Y!}
+donde {\verb!X.Y!} es la versión de Python que estemos
+usando.
+
+Cada uno de los directorios puede contener varios ficheros de los cuales
+puede que no necesitemos todos. En mi caso, y para este ejemplo, en el
+directorio {\verb!encodings!} solo necesito mantener
+los ficheros:
+
+\begin{lstlisting}
+__init__.py
+aliases.py
+utf_8.py
+utf_8_sig.py
+\end{lstlisting}
+
+Siguiendo este proceso, mi ejemplo necesita un directorio de unos 236Kb.
+Tened en cuenta que en cuanto ejecutáis el programa la primera vez,
+todos esos ficheros se compilan en byte codes y se almacenan en un
+directorio llamado {\verb!__pycache__!} en cada
+subdirectorio de {\verb!lib!}. Podéis usar el contenido
+de ese directorio para ver que módulos se utilizan y cuales no.
+
+De esta forma hemos solucionado uno de nuestros problemas. Disponemos de
+una forma de incluir los módulos Python que necesitemos de una manera
+controlada. Ahora vamos a solucionar nuestro otro problema.
+
+\hypertarget{generando-un-binario-estuxe1tico}{%
+\sectiontext{white}{black}{GENERANDO UN BINARIO ESTÁTICO}\label{generando-un-binario-estuxe1tico}}
+
+Nuestro siguiente problema es incluir el intérprete de Python en nuestro
+programa de forma que podamos usar código Python independientemente de
+si está instalado o no.
+
+Para ello solo necesitamos incluir la librería estática
+{\verb!libpython.a!} y algunas de sus referencias.
+
+La forma de compilar el programa sería algo así:
+
+\begin{lstlisting}
+gcc -static -fPIE -o test example03.c \
+-I/usr/include/python3.11 -O2 -Wall \
+-L/usr/lib/python3.11/config-3.11-x86_64-linux-gnu \
+-L/usr/lib/x86_64-linux-gnu \
+-lpython3.11 -lm -ldl -lz -lexpat
+\end{lstlisting}
+
+El comando anterior genera un monton de warnings del tipo:
+
+\begin{lstlisting}
+/usr/bin/ld: /usr/lib/python3.11/config-3.11-x86_64-
+linux-gnu/libpython3.11.a(socketmodule.o): in function
+`socket_getservbyport':
+(.text.unlikely+0x3837): warning: Using 'getservbyport'
+in statically linked applications requires at runtime
+the shared libraries from the glibc version used for
+linking
+\end{lstlisting}
+
+Sin entrar en detalles, hay ciertas funciones de libC que seleccionan el
+código a ejecutar de forma dinámica en tiempo de ejecución. Un ejemplo
+típico son las funciones de resolución de nombre que dependiendo de la
+configuración del sistema pueden hacer una petición DNS, una consulta
+LDAP o leer el fichero {\verb!hosts!}. Si vuestro
+programa necesita utilizar alguna de esas funciones, quizás tendréis que
+proporcionar una alternativa propia.
+
+Así que llegados a este punto disponemos de un binario estático que
+incluye el intérprete Python y un directorio que contiene el conjunto
+mínimo de módulos que necesitamos\ldots{} Que tal si los combinamos?
+
+\hypertarget{incluyendo-los-muxf3dulos-en-el-binario}{%
+\sectiontext{white}{black}{INCLUYENDO LOS MÓDULOS EN EL BINARIO}\label{incluyendo-los-muxf3dulos-en-el-binario}}
+
+Hay distintas formas de hacer esto, pero nosotros vamos a implementar la
+más directa, aunque, todo hay que decirlo, es bastante guay :). El
+proceso consta de tres pasos.
+
+\begin{itemize}
+
+\item
+  Incluir el directorio de módulos en el binario
+\item
+  Descomprimir los módulos al comenzar la ejecución del programa
+\item
+  Borrar el directorio de módulos al terminar.
+\end{itemize}
+
+Para incluir los módulos, lo primero que haremos será crear un fichero
+{\verb!tar!} del directorio que los contiene. Recordad
+que no necesitamos los ficheros compilados, si bien, si los incluimos el
+programa se iniciará un poco más rápido. Si no queremos incluir el cache
+podemos generar el fichero de la siguiente forma:
+
+\begin{lstlisting}
+$ tar czvf libs.tgz --exclude=__pycache__ ./libs
+\end{lstlisting}
+
+Ahora convertiremos este fichero en un objeto ELF que podamos linkar con
+nuestra aplicación\ldots. No me digas que esto no mola.
+
+\begin{lstlisting}
+$ objcopy -I binary -O elf64-x86-64 libs.tgz  libs.o
+\end{lstlisting}
+
+Ahora podemos recompilar nuestro programa incluyendo este nuevo objeto:
+
+\begin{lstlisting}
+gcc -static -o example04 example04.c \
+-I/usr/include/python3.11 -fPIE -O2 -Wall \
+-L/usr/lib/python3.11/config-3.11-x86_64-linux-gnu \
+-L/usr/lib/x86_64-linux-gnu -lpython3.11 \
+-lm -ldl -lz -lexpat libs.o
+\end{lstlisting}
+
+Las única diferencia aquí es que estamos incluyendo nuestro fichero tar
+al final, pero como un objeto ELF\ldots{} Y os preguntaréis cual es la
+diferencia de hacer esto a un simple {\verb!cat >>!}.
+Esa es una fantástica pregunta y la respuesta es esta:
+
+\begin{lstlisting}
+$ readelf -Ws example04 | grep libs
+ 22255: 0000000000bcc758     0 NOTYPE  GLOBAL DEFAULT   21 _binary_libs_tgz_end
+ 23049: 0000000000bc0b48     0 NOTYPE  GLOBAL DEFAULT   21 _binary_libs_tgz_start
+ 24221: 000000000000bc10     0 NOTYPE  GLOBAL DEFAULT  ABS _binary_libs_tgz_size
+\end{lstlisting}
+
+Sip, de esta forma tendremos acceso desde nuestro programa a estos
+símbolos que nos dirán en que parte de la memoria se ha cargado nuestro
+fichero tar. Enseguida veremos como usar estos símbolos:
+
+\hypertarget{descomprimiendo-el-directorio-de-muxf3dulos}{%
+\sectiontext{white}{black}{DESCOMPRIMIENTO EL DIRECTORIO DE MÓDULOS}\label{descomprimiendo-el-directorio-de-muxf3dulos}}
+
+Para poder descomprimir el directorio de módulos, tendremos que volcar
+el fichero tar que ahora está en memoria añadiendo un poco de código al
+principio del programa. Algo como esto:
+
+\begin{lstlisting}[language=C]
+extern int _binary_libs_tgz_start;
+extern int _binary_libs_tgz_size;
+
+int
+main(int argc, char *argv[])
+{
+  mkdir ("/tmp/example04", 0777);
+  int fd = open ("/tmp/example04/libs.tgz",
+                O_CREAT | O_WRONLY, 0777);
+  write (fd, &_binary_libs_tgz_start,
+                (long)&_binary_libs_tgz_size);
+  close (fd);
+  system ("tar xzf /tmp/example04/libs.tgz "
+           "-C /tmp/example04");
+  (...)
+\end{lstlisting}
+
+Puesto que los símbolos vienen de otro módulo, debemos declararlos como
+externos. Observad que lo que obtenemos es el símbolo, es decir, el
+nombre que le damos a algún valor, o su posición en memoria. Así, la
+forma de acceder a los valores asociados a los símbolos
+{\verb!_binaryXXX!} es utilizando el operador
+{\verb!&!} . Una vez que sabemos esto, lo único que
+tenemos que hacer es crear un directorio temporal, volcar los datos en
+el y descomprimir el fichero.
+
+En este caso hemos usado {\verb!system!} para llamar a
+{\verb!tar!} en lugar de descomprimir el fichero
+nosotros mismos.
+
+Al final del programa, antes de terminar, añadiremos una línea como esta
+para limpiar nuestros restos:
+
+\begin{lstlisting}[language=C]
+  system ("rm -Rf /tmp/example04");
+\end{lstlisting}
+
+Dos comentarios finales. El primero es recordaros que
+{\verb!system!} es una función peligrosa. En este caso
+estamos usando cadenas estáticas, pero en general es mejor evitarla.
+Para el tema que nos ocupa no es relevante como creamos o borramos
+directorios, pero teníamos que hacer este comentario.
+
+El segundo es que si tenéis demasiadas dependencias quizás no os
+interese incluir {\verb!libs.tgz!} de la forma en la
+que lo hemos hecho, es decir, cargando todo su contenido en memoria
+simplemente para volcarlo en el disco. En ese caso es mejor incluir el
+fichero al final de nuestro ejecutable y utilizar algún tipo de
+información extra o marca para extraer el contenido directamente del
+disco, ahorrando memoria\ldots{} pero el método usando
+{\verb!objcopy!} era tan güay que no nos pudimos
+resistir :).
+
+\hypertarget{conclusiones}{%
+\sectiontext{white}{black}{CONCLUSIONES}\label{conclusiones}}
+
+Y esto es todo. Hemos visto como integrar un intérprete Python en
+nuestros programas en C y como podemos ejecutar código Python desde C y
+código C desde Python. También hemos visto como configurar nuestro
+intérprete y como generar un programa estático que incluye el intérprete
+de Python así como los módulos que podamos necesitar para su ejecución.
+
+Aún cuando hemos intentado reducir los distintos elementos del programa
+al mínimo, el ejecutable resultante es de 9 Mb\ldots{} un tamaño similar
+al que obtendríamos compilando nuestro módulo Python con Cython. Como
+podéis ver el programa crece mucho y manejar los módulos y librerías que
+dependen de él no es trivial. Quizás esta sea la razón por la que Python
+no es la versión más popular para incluir un lenguaje de script en un
+programa\ldots{} \EOP
+
+\end{multicols}
